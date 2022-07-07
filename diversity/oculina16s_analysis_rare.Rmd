@@ -1,0 +1,632 @@
+---
+title: "oculina16s_analysis"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+date: '2022-06-01'
+---
+### Based on DADA2 Pipeline 1.16 Walkthrough & Nicola Kriefall's Moorea holobiont analysis
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+## Packages
+```{r packages}
+library(ggplot2)
+library(cowplot)
+library(phyloseq)
+library(car)
+library(ggpubr)
+library(vegan)
+library(dada2)
+```
+
+setwd("~/oculina/diversity")
+
+## Read in data
+
+```{r read in data}
+samdf <- read.csv("oculina16s_sampledata_plusneg_types.csv",header=TRUE)
+row.names(samdf) <- samdf$id
+load("taxa2.Rdata")
+```
+
+
+## Phyloseq objects
+
+```{r making phyloseq objects, eval=FALSE}
+#setwd("~/oculina/diversity")
+seqtab.rare <- read.csv("oculina16s_seqtab.cleanest.rare_2k copy",row.names=1)
+ps.rare <- phyloseq(otu_table(seqtab.rare, taxa_are_rows=FALSE), 
+                    sample_data(samdf), 
+                    tax_table(taxa2))
+ps.rare 
+#setwd("~/oculina/diversity")
+#save(ps.rare,file="ps.rare.Rdata")
+#4814 taxa during revisions - raw & rarefied
+
+#raw, unrarefied version:
+seqtab.clean <- read.csv("oculina16s_seqtab.cleanest.csv",row.names=1)
+ps.clean <- phyloseq(otu_table(seqtab.clean, taxa_are_rows=FALSE), 
+                    sample_data(samdf), 
+                    tax_table(taxa2))
+ps.clean
+#save(ps.clean,file="ps.clean.Rdata")
+#6573 taxa just raw, not rarefied
+
+```
+
+##TRIMMED VERSIONS:
+```{r}
+seqtab.rare.trim <- read.csv("oculina16s_seqtab.trim.rare_2k.csv",row.names=1)
+ps.rare.trim <- phyloseq(otu_table(seqtab.rare.trim, taxa_are_rows=FALSE), 
+                    sample_data(samdf), 
+                    tax_table(taxa2))
+ps.rare.trim
+#save(ps.rare.trim,file="ps.rare.trim.Rdata")
+#796 taxa &  61 samples rarefied
+
+#checking what happens if we read in the unrarefied version:
+seqtab.trim <- read.csv("oculina16s_seqtab.cleanest.trim.csv",row.names=1)
+ps.trim <- phyloseq(otu_table(seqtab.trim, taxa_are_rows=FALSE), 
+                    sample_data(samdf), 
+                    tax_table(taxa2))
+ps.trim
+#save(ps.trim,file="ps.trim.Rdata")
+#796 taxa & 70 samples not rarefied
+```
+
+
+```{r read in ps objects}
+load("ps.clean.Rdata")
+load("ps.rare.Rdata")
+load("ps.rare.trim.Rdata")
+load("ps.trim.Rdata")
+```
+
+# Diversity
+
+[Notes from phyloseq author](https://rdrr.io/bioc/phyloseq/man/estimate_richness.html)
+Visualize alpha-diversity - Should be done on raw, untrimmed dataset
+
+```{r generate div metrics}
+df <- data.frame(estimate_richness(ps.rare, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
+#df <- data.frame(estimate_richness(ps.clean, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
+#df <- data.frame(estimate_richness(ps.trim, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
+#df <- data.frame(estimate_richness(ps.rare.trim, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
+df$id <- rownames(df)
+df.div <- merge(df,samdf,by="id") #add sample data
+#shannon diversity divided by species richness
+df.div$even <- df.div$Shannon/(log(df.div$Observed))
+df.div.NR <- subset(df.div,site=="NR")
+df.div.RI <- subset(df.div,site=="RI")
+df.div.CL <- subset(df.div,site=="CL")
+df.div.summer <- subset(df.div,season=="Summer")
+df.div.fall <- subset(df.div,season=="Fall")
+df.div.coral <- subset(df.div, type=="coral")
+df.div.ss <- subset(df.div, type=="sediment" | type =="seawater")
+df.div.coral.NR <- subset(df.div.coral,site=="NR")
+df.div.coral.RI <- subset(df.div.coral,site=="RI")
+df.div.coral.CL <- subset(df.div.coral,site=="CL")
+df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
+```
+
+
+## Alpha metrics {.tabset}
+ 
+Looking at everything individually, more of a synthesis below
+
+### Shannon
+
+```{r shannon site}
+gg.site.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=site))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
+  geom_jitter(alpha=0.5)+
+  ylab("Shannon index")+
+  xlab("Site")+
+  theme_cowplot()+
+  theme(legend.position="none")
+gg.site.sha
+```
+
+
+```{r shannon coral}
+#plotting coral season & symb state
+gg.season.symb <- ggplot(df.div.coral, aes(x=season,y=Shannon,color=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  xlab("Season")+
+  ylab("Shannon index")+
+  #scale_x_discrete(labels=c("Fall","Summer"))+
+  scale_colour_manual(values=c("lightcyan3","coral4")) +
+  theme_cowplot()+
+  guides(season = "none")+
+  labs(color = "Symbiotic State")+
+  #geom_jitter(alpha=0.5)+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+gg.season.symb
+
+```
+```{r shannon sedsw}
+#plotting sed and sw
+gg.sedsw <- ggplot(df.div.ss, aes(x=season,y=Shannon,color=season))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(shape=type), size = 3, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  xlab("Season")+
+  ylab("Shannon index")+
+  #scale_x_discrete(labels=c("Fall","Summer"))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
+  theme_cowplot()+
+  guides(color = "none")+
+  labs(shape = "Type")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+gg.sedsw
+```
+
+
+```{r shannon symb state}
+gg.ss.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  scale_colour_manual(values=c("lightcyan3","coral4")) +
+  ylab("Shannon index")+
+  xlab("Site")+
+  labs(color = "Symbiotic State")+
+  theme_cowplot() +
+  scale_x_discrete(limits=c('NR','RI', 'CL'))
+  #theme(legend.position="none")
+gg.ss.sha
+```
+
+
+
+```{r shannon stats}
+#Shannon
+shapiro.test(df.div$Shannon) #ns
+shapiro.test(df.div.coral$Shannon) #ns
+leveneTest(df.div$Shannon~site/season,data=df.div) #ns (variances equal)
+leveneTest(df.div.coral$Shannon~site/season,data=df.div.coral) #ns (variances equal)
+a.div <- aov(Shannon~site*season,data=df.div.coral)
+summary(a.div) 
+  #            Df Sum Sq Mean Sq F value Pr(>F)  
+  #site         2  2.699  1.3496   2.593 0.0887 .
+  #season       1  1.634  1.6339   3.139 0.0849 .
+  #site:season  1  2.148  2.1485   4.128 0.0496 *
+a.div.symb <- aov(Shannon~symbstate*site,data=df.div.coral)
+summary(a.div.symb)
+  #               Df Sum Sq Mean Sq F value Pr(>F)  
+  #symbstate       1  0.027  0.0274   0.052 0.8212  
+  #site            2  2.752  1.3762   2.607 0.0880 .
+  #symbstate:site  2  3.962  1.9810   3.753 0.0334 *
+  #Residuals      35 18.476  0.5279
+a.div.symb.seas <- aov(Shannon~symbstate*season,data=df.div.coral)
+summary(a.div.symb.seas)
+  #               Df Sum Sq Mean Sq F value Pr(>F)  
+   #symbstate       1  0.027  0.0274   0.052 0.8212  
+   #site            2  2.752  1.3762   2.607 0.0880 .
+   #symbstate:site  2  3.962  1.9810   3.753 0.0334 *
+   #Residuals      35 18.476  0.5279
+TukeyHSD(a.div) # NR-CL sig (.)
+TukeyHSD(a.div.symb) # all ns
+TukeyHSD(a.div.symb.seas) #all ns
+
+#stats by season (coral):
+wilcox.test(Shannon~season, data=df.div.coral) # < 0.05 *
+summary(aov(Shannon~season,data=df.div.coral)) # < 0.05 *
+wilcox.test(Shannon~season,data=df.div.coral.NR) #ns
+summary(aov(Shannon~season,data=df.div.coral.NR)) #ns
+wilcox.test(Shannon~season,data=df.div.coral.RI) # < 0.01 **
+summary(aov(Shannon~season,data=df.div.coral.RI)) # < 0.01 **
+
+#stats symb state
+wilcox.test(Shannon~symbstate,data=df.div.coral) #ns
+summary(aov(Shannon~symbstate,data=df.div.coral)) #ns
+wilcox.test(Shannon~symbstate,data=df.div.coral.NR) # < 0.1 .
+summary(aov(Shannon~symbstate,data=df.div.coral.NR)) # < 0.5 *
+wilcox.test(Shannon~symbstate,data=df.div.coral.RI) #ns
+summary(aov(Shannon~symbstate,data=df.div.coral.RI)) # < 0.1 .
+wilcox.test(Shannon~symbstate,data=df.div.coral.CL) #ns
+summary(aov(Shannon~symbstate,data=df.div.coral.CL)) #ns
+```
+```{r shannon no CL stats}
+shapiro.test(df.div.coral.NR.RI$Shannon) #ns
+leveneTest(df.div.coral.NR.RI$Shannon~site/season,data=df.div.coral.NR.RI) #ns (variances equal)
+a.div <- aov(Shannon~site/season,data=df.div.coral.NR.RI)
+summary(a.div) #site:season significant (<0.05)
+a.div.symb <- aov(Shannon~symbstate/site,data=df.div.coral.NR.RI)
+summary(a.div.symb) #symbstate:site significant (<0.05)
+a.div.symb.seas <- aov(Shannon~symbstate/season,data=df.div.coral.NR.RI)
+summary(a.div.symb.seas) #ns
+TukeyHSD(a.div) # ns
+TukeyHSD(a.div.symb) # sig <0.1 for symbiotic:RI-symbiotic:NR 
+TukeyHSD(a.div.symb.seas) #ns
+
+#stats by season (coral):
+wilcox.test(Shannon~symbstate,data=df.div.coral.NR.RI) #ns
+wilcox.test(Shannon~season,data=df.div.coral.NR.RI) # ns
+summary(aov(Shannon~season,data=df.div.coral.NR.RI)) #ns
+wilcox.test(Shannon~symbstate,data=df.div.coral.NR.RI) # ns
+summary(aov(Shannon~symbstate,data=df.div.coral.NR.RI)) #ns
+
+```
+
+
+### Simpson
+
+```{r simpson site}
+gg.site.sim <- ggplot(df.div.coral,aes(x=site,y=InvSimpson,color=site))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
+  geom_jitter(alpha=0.5)+
+  ylab("Inv. Simpson index")+
+  xlab("Site")+
+  theme_cowplot()+
+  theme(legend.position="none")
+gg.site.sim
+```
+
+```{r simpson season}
+gg.season.sim <- ggplot(df.div.coral,aes(x=season,y=InvSimpson,color=season))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
+  geom_jitter(alpha=0.5)+
+  ylab("Inv. Simpson index")+
+  xlab("Site")+
+  theme_cowplot()+
+  theme(legend.position="none")
+gg.season.sim
+```
+
+
+```{r simpson stats}
+#simpson
+shapiro.test(df.div.coral$InvSimpson) #not normal
+df.div.coral$si.log <- log(df.div.coral$InvSimpson) 
+shapiro.test(df.div.coral$si.log) #normal, ns
+
+##season
+leveneTest(df.div.coral$si.log~site/season,data=df.div.coral) #ns
+a.div.season.coral <- aov(si.log~site/season,data=df.div.coral)
+summary(a.div.season.coral) #site & site:season significant (<.05 *)
+TukeyHSD(a.div.season.coral) #RI-summer:RI-Fall sig (<0.05 *)
+
+##symbstate
+leveneTest(df.div.coral$si.log~site/symbstate,data=df.div.coral) #ns
+a.div.symb.coral <- aov(si.log~site/symbstate,data=df.div.coral)
+summary(a.div.symb.coral) #site significant (<0.1 .)
+TukeyHSD(a.div.symb.coral) #ns
+
+#stats by site (season):
+wilcox.test(InvSimpson~season,data=df.div.coral) # < 0.01 **
+wilcox.test(InvSimpson~season,data=df.div.coral.NR.RI) # < 0.05 *
+wilcox.test(InvSimpson~season,data=df.div.coral.NR) #ns
+summary(aov(InvSimpson~season,data=df.div.coral.NR)) #ns
+wilcox.test(InvSimpson~season,data=df.div.coral.RI) # < 0.05 *
+summary(aov(InvSimpson~season,data=df.div.coral.RI)) # < 0.05 *
+
+#stats by site (symb state):
+wilcox.test(InvSimpson~symbstate,data=df.div.coral) # ns
+wilcox.test(InvSimpson~symbstate,data=df.div.coral.NR) # < 0.01 **
+summary(aov(InvSimpson~symbstate,data=df.div.coral.NR)) # < 0.05 *
+wilcox.test(InvSimpson~symbstate,data=df.div.coral.RI) # ns
+summary(aov(InvSimpson~symbstate,data=df.div.coral.RI)) # < 0.1 .
+wilcox.test(InvSimpson~symbstate,data=df.div.coral.CL) # ns
+summary(aov(InvSimpson~symbstate,data=df.div.coral.CL)) # ns
+```
+
+
+### Richness
+
+```{r richness site}
+gg.site.obs <- ggplot(df.div.coral,aes(x=site,y=Observed,color=site))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
+  geom_jitter(alpha=0.5)+
+  ylab("ASV richness")+
+  xlab("Site")+
+  theme_cowplot()+
+  theme(legend.position="none")
+gg.site.obs
+```
+```{r richness season}
+gg.season.obs <- ggplot(df.div.coral, aes(x=season,y=Observed,color=season,shape=season))+
+  geom_boxplot(outlier.shape=NA)+
+  xlab("Reef zone")+
+  ylab("ASV richness")+
+  theme_cowplot()+
+  scale_shape_manual(values=c(16,15),labels=c("Fall","Summer"))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Fall","Summer"))+
+  theme(legend.position="none")+
+  geom_jitter(alpha=0.5)+
+  facet_wrap(~site)+
+  scale_x_discrete(labels=c("Fall","Summer"))
+gg.season.obs
+```
+```{r richness symbstate}
+gg.symb.obs <- ggplot(df.div.coral, aes(x=symbstate,y=Observed,color=symbstate,shape=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  xlab("Reef zone")+
+  ylab("ASV richness")+
+  theme_cowplot()+
+  scale_colour_manual(values=c("lightcyan3","coral4"),labels=c("Apo","Symb")) +
+  scale_shape_manual(values=c(16,15),labels=c("Apo","Symb"))+
+  theme(legend.position="none")+
+  geom_jitter(alpha=0.5)+
+  facet_wrap(~site)+
+  scale_x_discrete(labels=c("Apo","Symb"))
+gg.symb.obs
+```
+```{r richness symbstate season}
+gg.season.symb.obs <- ggplot(df.div.coral, aes(x=season,y=Observed,color=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  xlab("Season")+
+  ylab("ASV Richness")+
+  #scale_x_discrete(labels=c("Fall","Summer"))+
+  scale_colour_manual(values=c("lightcyan3","coral4")) +
+  theme_cowplot()+
+  guides(season = "none")+
+  labs(color = "Symbiotic State")+
+  #geom_jitter(alpha=0.5)+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+gg.season.symb.obs
+```
+
+
+```{r richness stats}
+#otu richness
+shapiro.test(df.div.coral$Observed) # p-value = 1.059e-05 ???
+df.div.coral$obs.log <- log(df.div.coral$Observed)
+shapiro.test(df.div.coral$obs.log) #p-value = 0.1021
+leveneTest(df.div.coral$obs.log~site/season,data=df.div.coral) 
+a.div <- aov(obs.log~site/season,data=df.div.coral)
+summary(a.div) #ns         
+TukeyHSD(a.div) #ns
+
+#stats by site (season):
+wilcox.test(Observed~season,data=df.div.coral.NR) #ns
+summary(aov(Observed~season,data=df.div.coral.NR)) #ns
+wilcox.test(Observed~season,data=df.div.coral.RI) #ns
+summary(aov(Observed~season,data=df.div.coral.RI)) #ns
+
+#stats by site (symbstate):
+wilcox.test(Observed~symbstate,data=df.div.coral.NR) #ns
+summary(aov(Observed~symbstate,data=df.div.coral.NR)) #ns
+wilcox.test(Observed~symbstate,data=df.div.coral.RI) # < 0.05 *
+summary(aov(Observed~symbstate,data=df.div.coral.RI)) # < 0.05 *
+wilcox.test(Observed~symbstate,data=df.div.coral.CL) #ns
+summary(aov(Observed~symbstate,data=df.div.coral.CL)) #ns
+```
+
+
+### Evenness
+
+```{r evenness site}
+gg.site.eve <- ggplot(df.div.coral,aes(x=site,y=even,color=site))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
+  geom_jitter(alpha=0.5)+
+  ylab("Evenness")+
+  xlab("Site")+
+  theme_cowplot()+
+  theme(legend.position="none")
+gg.site.eve
+```
+
+```{r evenness season}
+gg.season.eve <- ggplot(df.div.coral, aes(x=season, y=even,color=season,shape=season))+
+  geom_boxplot(outlier.shape=NA)+
+  xlab("Season")+
+  ylab("Evenness")+
+  theme_cowplot()+
+  scale_shape_manual(values=c(16,15),labels=c("Fall","Summer"))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Fall","Summer"))+
+  #guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))+
+  theme(legend.position="none")+
+  geom_jitter(alpha=0.5)+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+  #scale_x_discrete(labels=c("BR","FR"))
+gg.season.eve
+```
+
+```{r evenness symbstate}
+gg.symb.eve <- ggplot(df.div.coral, aes(x=symbstate, y=even,color=symbstate,shape=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  xlab("Symbiotic State")+
+  ylab("Evenness")+
+  theme_cowplot()+
+  scale_shape_manual(values=c(16,15),labels=c("Apo","Sym"))+
+  scale_colour_manual(values=c("lightcyan3","coral4"),labels=c("Apo","Symb")) +
+  theme(legend.position="none")+
+  geom_jitter(alpha=0.5)+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+gg.symb.eve
+```
+```{r evenness symbstate season}
+gg.season.symb.eve <- ggplot(df.div.coral, aes(x=season,y=even,color=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  xlab("Season")+
+  ylab("Evenness")+
+  #scale_x_discrete(labels=c("Fall","Summer"))+
+  scale_colour_manual(values=c("lightcyan3","coral4")) +
+  theme_cowplot()+
+  guides(season = "none")+
+  labs(color = "Symbiotic State")+
+  #geom_jitter(alpha=0.5)+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+gg.season.symb.eve
+```
+
+
+
+```{r evenness stats}
+#evenness
+shapiro.test(df.div.coral$even) # < 0.05 *
+leveneTest(df.div.coral$even~site*season,data=df.div.coral) #ns
+leveneTest(df.div.coral$even~site*symbstate,data=df.div.coral) #ns
+
+# aov season
+a.div <- aov(even~site*season,data=df.div.coral)
+summary(a.div)
+#           Df  Sum Sq Mean Sq F value  Pr(>F)   
+#site         2 0.07688 0.03844   5.281 0.00975 **
+#season       1 0.06191 0.06191   8.505 0.00606 **
+#site:season  1 0.03761 0.03761   5.166 0.02910 * 
+#Residuals   36 0.26206 0.00728 
+TukeyHSD(a.div) #ns
+
+#aov site*symbstate
+a.div <- aov(even~symbstate,data=df.div.coral)
+summary(a.div) #ns
+a.div <- aov(even~site,data=df.div.coral)
+summary(a.div) # < 0.05 *
+a.div <- aov(even~site*symbstate,data=df.div.coral)
+summary(a.div) #ns
+TukeyHSD(a.div) # NR-CL and RI-CL significant (<0.05 *)
+
+#stats by site (season):
+wilcox.test(even~season,data=df.div.coral.NR.RI) # < 0.01 ** becomes sig once CL taken out
+summary(aov(even~season,data=df.div.coral.NR.RI)) # < 0.01 **
+wilcox.test(even~season,data=df.div.coral.NR) #ns
+summary(aov(even~season,data=df.div.coral.NR)) #ns
+wilcox.test(even~season,data=df.div.coral.RI) #ns
+summary(aov(even~season,data=df.div.coral.RI)) # 0 *** wow - all being driven by RI, not NR, but that's probably bc very few samples from NR for fall
+
+#stats by site (symbstate):
+wilcox.test(even~symbstate,data=df.div.coral.NR) # < 0.01 ** sig effect of symb state evenness @ NR but not RI or CL!
+summary(aov(even~symbstate,data=df.div.coral.NR)) # < 0.01 **
+wilcox.test(even~symbstate,data=df.div.coral.RI) #ns
+summary(aov(even~symbstate,data=df.div.coral.RI)) #ns
+wilcox.test(even~symbstate,data=df.div.coral.CL) #ns (p = 1!)
+summary(aov(even~symbstate,data=df.div.coral.CL)) #ns
+```
+
+
+## Phylogenetic diversity (Faith's D)
+
+Tutorial from dada2 author [here](https://f1000research.com/articles/5-1492/v2)
+
+```{r packages phylo d, eval=FALSE}
+#install.packages('devtools')
+#library(devtools)
+#devtools::install_github('twbattaglia/btools')
+#library(btools)
+```
+
+
+## Playing with microshades
+```{r microshades setup}
+#remotes::install_github("KarstensLab/microshades")
+library("microshades")
+#remotes::install_github("mikemc/speedyseq")
+library("speedyseq")
+
+#overall by all_id
+ps_glom.rare <- tax_glom(ps.rare, "Genus")
+ps0.rare <- transform_sample_counts(ps_glom.rare, function(x) x / sum(x))
+ps1.rare <- merge_samples(ps0.rare, "all_id")
+ps.rare.allid <- transform_sample_counts(ps1.rare, function(x) x / sum(x))
+
+# overall by type
+ps1.rare.type <- merge_samples(ps0.rare, "type")
+ps.rare.type <- transform_sample_counts(ps1.rare.type, function(x) x / sum(x))
+
+# overall coral by all_id
+ps.coral <- subset_samples(ps.rare,type=="coral")
+ps_glom.coral <- tax_glom(ps.coral, "Genus")
+ps0.coral <- transform_sample_counts(ps_glom.coral, function(x) x / sum(x))
+ps1.coral <- merge_samples(ps0.coral, "all_id")
+ps.coral.allid <- transform_sample_counts(ps1.coral, function(x) x / sum(x))
+
+# overall coral by site
+ps1.coral.site <- merge_samples(ps.coral, "site")
+ps.coral.site <- transform_sample_counts(ps1.coral.site, function(x) x / sum(x))
+
+# overall coral by season
+ps1.coral.season <- merge_samples(ps.coral, "season")
+ps.coral.season <- transform_sample_counts(ps1.coral.season, function(x) x / sum(x))
+
+# overall coral by symbstate
+ps1.coral.symbstate <- merge_samples(ps.coral, "symbstate")
+ps.coral.symbstate <- transform_sample_counts(ps1.coral.symbstate, function(x) x / sum(x))
+
+# Use microshades function prep_mdf to agglomerate, normalize, and melt the phyloseq object
+mdf.prep.rare <- prep_mdf(ps.rare.allid, subgroup_level = "Family")
+mdf.prep.rare.type <- prep_mdf(ps.rare.type, subgroup_level = "Family")
+mdf.prep <- prep_mdf(ps.coral.allid, subgroup_level = "Family")
+mdf.prep.site <- prep_mdf(ps.coral.site, subgroup_level = "Family")
+mdf.prep.season <- prep_mdf(ps.coral.season, subgroup_level = "Family")
+mdf.prep.symbstate <- prep_mdf(ps.coral.symbstate, subgroup_level = "Family")
+
+# Create a color object for the specified data
+color.obj.rare <- create_color_dfs(mdf.prep.rare, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
+color.obj.rare.type <- create_color_dfs(mdf.prep.rare.type, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
+color.obj <- create_color_dfs(mdf.prep, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
+color.obj.site <- create_color_dfs(mdf.prep.site, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
+color.obj.season <- create_color_dfs(mdf.prep.season, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
+color.obj.symbstate <- create_color_dfs(mdf.prep.symbstate, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
+
+
+# Extract
+mdf.rare <- color.obj.rare$mdf #contains sample data and abundance info
+cdf.rare <- color.obj.rare$cdf #contains color mapping info
+mdf.rare.type <- color.obj.rare.type$mdf 
+cdf.rare.type <- color.obj.rare.type$cdf 
+mdf.coral <- color.obj$mdf 
+cdf.coral <- color.obj$cdf 
+mdf.coral.site <- color.obj.site$mdf
+cdf.coral.site <- color.obj.site$cdf
+mdf.coral.season <- color.obj.season$mdf
+cdf.coral.season <- color.obj.season$cdf
+mdf.coral.symbstate <- color.obj.symbstate$mdf
+cdf.coral.symbstate <- color.obj.symbstate$cdf
+
+```
+
+
+```{r}
+plot1.all <- plot_microshades(mdf.rare, cdf.rare, group_label = "Phylum Family")
+plot1.all.type <- plot_microshades(mdf.rare.type, cdf.rare.type, group_label = "Phylum Family")
+plot1.allid <- plot_microshades(mdf.coral, cdf.coral, group_label = "Phylum Family")
+plot1.site <- plot_microshades(mdf.coral.site, cdf.coral.site, group_label = "Phylum Family")
+plot1.season <- plot_microshades(mdf.coral.season, cdf.coral.season, group_label = "Phylum Family")
+plot1.symbstate <- plot_microshades(mdf.coral.symbstate, cdf.coral.symbstate, group_label = "Phylum Family")
+
+```
+
+```{r}
+# reorder_samples_by will change the order of samples based on an abundance of a specified subgroup taxonomy
+new.sample.order.coral <- reorder_samples_by(mdf.coral, cdf.coral, order = "Proteobacteria", group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = FALSE)
+
+mdf.new.sample.order <-new.sample.order.coral$mdf
+cdf.new.sample.order <-new.sample.order.coral$cdf
+
+plot_2 <- plot_microshades(mdf.new.sample.order, cdf.new.sample.order, group_label = "Phylum Family")
+
+plot_2 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
+  theme(legend.key.size = unit(0.2, "cm"), text=element_text(size=10)) +
+  theme(axis.text.x = element_text(size= 6))
+```
+
+```{r reorder samples by abundance of group levels only}
+# reorder_samples_by will change the order of samples based on an abundance of a specified subgroup taxonomy
+# The default subgroup_level is "Genus" 
+new_group_order_v1v3_stool <- reorder_samples_by(mdf_v1v3_stool, cdf_v1v3_stool, group_level = "PHYLUM", subgroup_level = "FAMILY", sink_abundant_groups = TRUE)
+
+mdf_new_group_order <-new_group_order_v1v3_stool$mdf
+cdf_new_group_order <-new_group_order_v1v3_stool$cdf
+
+plot_3 <- plot_microshades(mdf_new_group_order, cdf_new_group_order, group_label = "Phylum Family")
+
+plot_3 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
+  theme(legend.key.size = unit(0.2, "cm"), text=element_text(size=10)) +
+  theme(axis.text.x = element_text(size= 6))
+```
+
