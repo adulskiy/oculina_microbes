@@ -5,6 +5,8 @@ output:
   html_document: default
   pdf_document: default
 date: '2022-06-01'
+editor_options: 
+  chunk_output_type: console
 ---
 ### Based on DADA2 Pipeline 1.16 Walkthrough & Nicola Kriefall's Moorea holobiont analysis
 
@@ -25,14 +27,14 @@ library(vegan)
 library(dada2)
 ```
 
-setwd("~/oculina/diversity")
+setwd("~/oculina/data/")
 
 ## Read in data
 
 ```{r read in data}
-samdf <- read.csv("oculina16s_sampledata_plusneg_types.csv",header=TRUE)
+samdf <- read.csv("~/oculina/data/oculina16s_sampledata_plusneg_types.csv",header=TRUE) #R is making me put the full path all of a sudden, not sure why
 row.names(samdf) <- samdf$id
-load("taxa2.Rdata")
+load("~/oculina/data/taxa2.Rdata")
 ```
 
 
@@ -45,7 +47,6 @@ ps.rare <- phyloseq(otu_table(seqtab.rare, taxa_are_rows=FALSE),
                     sample_data(samdf), 
                     tax_table(taxa2))
 ps.rare 
-#setwd("~/oculina/diversity")
 #save(ps.rare,file="ps.rare.Rdata")
 #4814 taxa during revisions - raw & rarefied
 
@@ -82,10 +83,10 @@ ps.trim
 
 
 ```{r read in ps objects}
-load("ps.clean.Rdata")
+#load("ps.clean.Rdata")
 load("ps.rare.Rdata")
-load("ps.rare.trim.Rdata")
-load("ps.trim.Rdata")
+#load("ps.rare.trim.Rdata")
+#load("ps.trim.Rdata")
 ```
 
 # Diversity
@@ -528,6 +529,13 @@ library("microshades")
 #remotes::install_github("mikemc/speedyseq")
 library("speedyseq")
 
+#all
+ps_glom <- tax_glom(ps.rare, "Genus")
+ps0 <- transform_sample_counts(ps_glom, function(x) x / sum(x))
+ps1 <- merge_samples(ps0, "fullname")
+ps.all <- transform_sample_counts(ps1, function(x) x / sum(x))
+
+
 #overall by all_id
 ps_glom.rare <- tax_glom(ps.rare, "Genus")
 ps0.rare <- transform_sample_counts(ps_glom.rare, function(x) x / sum(x))
@@ -558,29 +566,33 @@ ps1.coral.symbstate <- merge_samples(ps.coral, "symbstate")
 ps.coral.symbstate <- transform_sample_counts(ps1.coral.symbstate, function(x) x / sum(x))
 
 # Use microshades function prep_mdf to agglomerate, normalize, and melt the phyloseq object
+mdf.prep <- prep_mdf(ps.all, subgroup_level="Family")
 mdf.prep.rare <- prep_mdf(ps.rare.allid, subgroup_level = "Family")
 mdf.prep.rare.type <- prep_mdf(ps.rare.type, subgroup_level = "Family")
-mdf.prep <- prep_mdf(ps.coral.allid, subgroup_level = "Family")
+mdf.prep.allid <- prep_mdf(ps.coral.allid, subgroup_level = "Family")
 mdf.prep.site <- prep_mdf(ps.coral.site, subgroup_level = "Family")
 mdf.prep.season <- prep_mdf(ps.coral.season, subgroup_level = "Family")
 mdf.prep.symbstate <- prep_mdf(ps.coral.symbstate, subgroup_level = "Family")
 
 # Create a color object for the specified data
+color.obj <- create_color_dfs(mdf.prep, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.rare <- create_color_dfs(mdf.prep.rare, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.rare.type <- create_color_dfs(mdf.prep.rare.type, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
-color.obj <- create_color_dfs(mdf.prep, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
+color.obj.allid <- create_color_dfs(mdf.prep, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.site <- create_color_dfs(mdf.prep.site, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.season <- create_color_dfs(mdf.prep.season, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.symbstate <- create_color_dfs(mdf.prep.symbstate, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 
 
 # Extract
+mdf <- color.obj$mdf
+cdf <- color.obj$cdf
 mdf.rare <- color.obj.rare$mdf #contains sample data and abundance info
 cdf.rare <- color.obj.rare$cdf #contains color mapping info
 mdf.rare.type <- color.obj.rare.type$mdf 
 cdf.rare.type <- color.obj.rare.type$cdf 
-mdf.coral <- color.obj$mdf 
-cdf.coral <- color.obj$cdf 
+mdf.coral.allid <- color.obj$mdf.allid
+cdf.coral.allid <- color.obj$cdf.allid
 mdf.coral.site <- color.obj.site$mdf
 cdf.coral.site <- color.obj.site$cdf
 mdf.coral.season <- color.obj.season$mdf
@@ -592,6 +604,7 @@ cdf.coral.symbstate <- color.obj.symbstate$cdf
 
 
 ```{r}
+plot1 <- plot_microshades(mdf, cdf, group_label = "Phylum Family")
 plot1.all <- plot_microshades(mdf.rare, cdf.rare, group_label = "Phylum Family")
 plot1.all.type <- plot_microshades(mdf.rare.type, cdf.rare.type, group_label = "Phylum Family")
 plot1.allid <- plot_microshades(mdf.coral, cdf.coral, group_label = "Phylum Family")
@@ -603,7 +616,21 @@ plot1.symbstate <- plot_microshades(mdf.coral.symbstate, cdf.coral.symbstate, gr
 
 ```{r}
 # reorder_samples_by will change the order of samples based on an abundance of a specified subgroup taxonomy
-new.sample.order.coral <- reorder_samples_by(mdf.coral, cdf.coral, order = "Proteobacteria", group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = FALSE)
+new.sample.order <- reorder_samples_by(mdf, cdf, order = "Flavobacteriaceae", group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = TRUE)
+
+mdf.new.sample.order <-new.sample.order$mdf
+cdf.new.sample.order <-new.sample.order$cdf
+
+plot_2 <- plot_microshades(mdf.new.sample.order, cdf.new.sample.order, group_label = "Phylum Family")
+
+plot_2 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
+  theme(legend.key.size = unit(0.2, "cm"), text=element_text(size=10)) +
+  theme(axis.text.x = element_text(size= 6))
+```
+
+```{r}
+# reorder_samples_by will change the order of samples based on an abundance of a specified subgroup taxonomy
+new.sample.order.coral <- reorder_samples_by(mdf.coral, cdf.coral, order = "Clade_I", group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = TRUE)
 
 mdf.new.sample.order <-new.sample.order.coral$mdf
 cdf.new.sample.order <-new.sample.order.coral$cdf
@@ -618,12 +645,25 @@ plot_2 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
 ```{r reorder samples by abundance of group levels only}
 # reorder_samples_by will change the order of samples based on an abundance of a specified subgroup taxonomy
 # The default subgroup_level is "Genus" 
-new_group_order_v1v3_stool <- reorder_samples_by(mdf_v1v3_stool, cdf_v1v3_stool, group_level = "PHYLUM", subgroup_level = "FAMILY", sink_abundant_groups = TRUE)
+new.group.order <- reorder_samples_by(mdf.rare, cdf.rare, group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = TRUE)
 
-mdf_new_group_order <-new_group_order_v1v3_stool$mdf
-cdf_new_group_order <-new_group_order_v1v3_stool$cdf
+mdf.new.group.order <-new.group.order$mdf
+cdf.new.group.order <-new.group.order$cdf
 
-plot_3 <- plot_microshades(mdf_new_group_order, cdf_new_group_order, group_label = "Phylum Family")
+plot_3 <- plot_microshades(mdf.new.group.order, cdf.new.group.order, group_label = "Phylum Family")
+
+plot_3 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
+  theme(legend.key.size = unit(0.2, "cm"), text=element_text(size=10)) +
+  theme(axis.text.x = element_text(size= 6))
+```
+```{r}
+# reorder_samples_by will change the order of samples based on Family an abundance of "Bacteroidaceae" and reorder the Phylum to sink the most abundant groups
+reordered <- reorder_samples_by(mdf.rare, cdf.rare, order = "Thiovulaceae", group_level = "Phylum", subgroup_level = "Family",sink_abundant_groups=TRUE)
+
+mdf.reordered <-reordered$mdf
+cdf.reordered <-reordered$cdf
+
+plot_3 <- plot_microshades(mdf.reordered, cdf.reordered, group_label = "Phylum Family")
 
 plot_3 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
   theme(legend.key.size = unit(0.2, "cm"), text=element_text(size=10)) +
