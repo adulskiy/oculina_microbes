@@ -535,6 +535,23 @@ ps0 <- transform_sample_counts(ps_glom, function(x) x / sum(x))
 ps1 <- merge_samples(ps0, "fullname")
 ps.all <- transform_sample_counts(ps1, function(x) x / sum(x))
 
+# include other variables in ps.all (beyond just fullname)
+seqtab.cleanest <- read.csv("oculina16s_seqtab.cleanest.csv",row.names=1)
+ps.cleanest <- phyloseq(otu_table(seqtab.cleanest, taxa_are_rows=FALSE), 
+                    sample_data(samdf), 
+                    tax_table(taxa2))
+ps.cleanest 
+#save(ps.cleanest,file="ps.cleanest.Rdata")
+samdf.cleanest <- data.frame(ps.cleanest@sam_data)
+
+#for rarefied data, remove everything < 2000
+row.names.remove <- c("D6","F3","H2","F7","H4","H7")
+samdf.rare <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove), ]
+
+#variable1 = as.character(get_variable(samdf.rare, "type"))
+#sample_data(ps.all)$type <- mapply(paste0, variable1)
+merge_phyloseq(ps.all, samdf.rare)
+
 
 #overall by all_id
 ps_glom.rare <- tax_glom(ps.rare, "Genus")
@@ -607,7 +624,6 @@ cdf.coral.symbstate <- color.obj.symbstate$cdf
 plot1 <- plot_microshades(mdf, cdf, group_label = "Phylum Genus")
 plot1.all <- plot_microshades(mdf.rare, cdf.rare, group_label = "Phylum Family")
 plot1.all.type <- plot_microshades(mdf.rare.type, cdf.rare.type, group_label = "Phylum Family")
-plot1.allid <- plot_microshades(mdf.coral, cdf.coral, group_label = "Phylum Family")
 plot1.site <- plot_microshades(mdf.coral.site, cdf.coral.site, group_label = "Phylum Family")
 plot1.season <- plot_microshades(mdf.coral.season, cdf.coral.season, group_label = "Phylum Family")
 plot1.symbstate <- plot_microshades(mdf.coral.symbstate, cdf.coral.symbstate, group_label = "Phylum Family")
@@ -669,4 +685,14 @@ plot_3 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
   theme(legend.key.size = unit(0.2, "cm"), text=element_text(size=10)) +
   theme(axis.text.x = element_text(size= 6))
 ```
+
+
+```{r facet wrap}
+plot1 + 
+  theme(legend.key.size = unit(0.2, "cm"), text=element_text(size=10)) +
+  theme(axis.text.x = element_text(size= 6)) +
+  facet_grid(~type, scales = "free_x", space="free") +
+  theme (strip.text.x = element_text(size = 6))
+```
+
 
