@@ -24,6 +24,9 @@ library(tidyverse)
 #install.packages("remotes")
 #remotes::install_github("Jtrachsel/funfuns")
 library("funfuns")
+#BiocManager::install("microbiome")
+#remotes::install_github("r-lib/rlang")
+library(microbiome)
 ```
 
 
@@ -38,6 +41,7 @@ load("ps.rare.Rdata")
 #load("ps.rare.trim.Rdata")
 #load("ps.trim.Rdata")
 #ps.cleanest <- readRDS("phyloseq.cleanest.RDS")
+
 ```
 
 
@@ -83,148 +87,35 @@ for (i in 1:nrow(tax.clean)){
 
 tax_table(ps.rare) <- as.matrix(tax.clean)
 
-```
-
-
-# Core vs. accessory
-
-## Core
-
-```{r packages core, echo=FALSE}
-#BiocManager::install("microbiome")
-#remotes::install_github("r-lib/rlang")
-library(microbiome)
-```
-
-```{r subset coral all}
-#***I DON'T THINK I NEED THIS CODE HERE
+# subset coral
 ps.coral <- subset_samples(ps.rare,type=="coral")
-#ps.coral.NR <- subset_samples(ps.coral,site=="NR")
-#ps.coral.RI <- subset_samples(ps.coral,site=="RI")
-#ps.coral.CL <- subset_samples(ps.coral,site=="CL")
-#ps1.coral.site <- merge_samples(ps.coral, "site")
-#ps2.coral.site <- transform_sample_counts(ps1.coral.site, function(x) x / sum(x))
-#ps1.coral.ss <- merge_samples(ps.coral, "symbstate")
-#ps2.coral.ss <- transform_sample_counts(ps1.coral.ss, function(x) x / sum(x))
-#ps1.coral.seas <- merge_samples(ps.coral, "season")
-#ps2.coral.seas <- transform_sample_counts(ps1.coral.seas, function(x) x / sum(x))
+
+
 ```
 
 
-```{r create core ps}
-pseq.core <- core(ps.rare, detection = 0, prevalence = .7)
-pseq.core #4 taxa and 61 samples for ps.rare.trim, 5 taxa and 70 samples for ps.trim, 5 taxa and 64 samples for ps.rare
-#saving pseq.core for ps.rare.trim
-#setwd("~/oculina/community_comp")
-#core.tax <- data.frame(pseq.core@tax_table)
-#write.csv(core.tax,"core.taxa.trim.csv")
 
-#grouping by all_id (just for coral for now)
-ps.coral <- subset_samples(ps.rare,type=="coral") #need for accessory analysis later
-ps.core.coral <- subset_samples(pseq.core,type=="coral")
-ps_glom.coral <- tax_glom(ps.core.coral, "Genus")
-ps0.coral <- transform_sample_counts(ps_glom.coral, function(x) x / sum(x))
-
-#ps core coral grouped by all_id
-ps1.coral <- merge_samples(ps0.coral, "all_id")
-ps.core.coral.allid <- transform_sample_counts(ps1.coral, function(x) x / sum(x))
-
-#ps grouped by site (because all_id shows every site-symb-season combination)
-ps1.core.coral.site <- merge_samples(ps.core.coral, "site")
-ps.core.coral.site <- transform_sample_counts(ps1.core.coral.site, function(x) x / sum(x))
-
-#ps grouped by season
-ps1.core.coral.season <- merge_samples(ps.core.coral, "season")
-ps.core.coral.season <- transform_sample_counts(ps1.core.coral.season, function(x) x / sum(x))
-
-#ps grouped by symb state
-ps1.core.coral.symbstate <- merge_samples(ps.core.coral, "symbstate")
-ps.core.coral.symbstate <- transform_sample_counts(ps1.core.coral.symbstate, function(x) x / sum(x))
-
-#by site (need these for when just plotting data from one site)
-ps.core.NR <- subset_samples(pseq.core,site=="NR")
-ps.core.coral.NR <- subset_samples(ps.core.coral,site=="NR")
-ps.core.RI <- subset_samples(pseq.core,site=="RI")
-ps.core.coral.RI <- subset_samples(ps.core.coral,site=="RI")
-ps.core.CL <- subset_samples(pseq.core,site=="CL")
-ps.core.coral.CL <- subset_samples(ps.core.coral,site=="CL")
-
-#ps relative abundance core coral
-ps.core.coral.rel <- transform_sample_counts(ps.core.coral.allid, function(x) x / sum(x))
-
-```
-
-```{r bar plot core coral by all_id, site, season, & symbstate}
-
-# by all_id (not relative)
-gg.bar.coral.core.genus <- plot_bar(ps.core.coral.allid, fill="Genus")+
-  geom_bar(stat="identity")+
-  theme_cowplot()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust = 1))+
-  scale_fill_brewer(palette="BrBG")
-
-#site
-gg.bar.coral.core.site.genus <- plot_bar(ps.core.coral.site, fill="Genus")+
-  geom_bar(stat="identity")+
-  theme_cowplot()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust = 1)) +
-  scale_fill_brewer(palette="BrBG")
-
-gg.bar.coral.core.season.genus <- plot_bar(ps.core.coral.season, fill="Genus")+
-  geom_bar(stat="identity")+
-  theme_cowplot()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust = 1)) +
-  scale_fill_brewer(palette="BrBG")
-
-gg.bar.coral.core.symbstate.genus <- plot_bar(ps.core.coral.symbstate, fill="Genus")+
-  geom_bar(stat="identity")+
-  theme_cowplot()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust = 1)) +
-  scale_fill_brewer(palette="BrBG")
-
-gg.bar.coral.core.genus
-gg.bar.coral.core.site.genus
-gg.bar.coral.core.season.genus
-gg.bar.coral.core.symbstate.genus
-
-#ggsave(gg.bar.coral.core.genus,file="./figures/gg.bar.coral.core.genus.pdf",height=4)
-#ggsave(gg.bar.coral.core.site.genus,file="./figures/gg.bar.coral.core.site.genus.pdf",height=4)
-#ggsave(gg.bar.coral.core.season.genus,file="./figures/gg.bar.coral.core.season.genus.pdf",height=4)
-#ggsave(gg.bar.coral.core.symbstate.genus,file="./figures/gg.bar.coral.core.symbstate.genus.pdf",height=4)
-
-```
-
-```{r PCoA plots coral core abundance}
-# by all_id (NOT USEFUL, DON'T SAVE)
-#pcoa.coral.core <- 
-#  plot_ordination(ps.core.coral, ordinate(ps.core.coral,"PCoA", "bray"),color="all_id", shape="all_id")+
-#  stat_ellipse()+
-#  theme_cowplot()+
-#  scale_color_brewer(palette="BrBG")+
-#  xlab("Axis 1 (40.5%)")+
-#  ylab("Axis 2 (19%)")+
-#  ggtitle("Rarefied (Coral)")
-
+```{r PCoA plots}
 # by site
-pcoa.coral.core.site <- plot_ordination(ps.core.coral, ordinate(ps.core.coral,"PCoA", "bray"),color="site", shape="site")+
+pcoa.coral.site <- plot_ordination(ps.coral, ordinate(ps.coral,"PCoA", "bray"),color="site", shape="site")+
   stat_ellipse()+
   theme_cowplot()+
   scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
   scale_shape_manual(name="Site",values=c(8,4,9))+
-  xlab("Axis 1 (40.5%)")+
-  ylab("Axis 2 (19%)")+
+  #xlab("Axis 1 (40.5%)")+
+  #ylab("Axis 2 (19%)")+
   ggtitle("Rarefied (Coral)")
 
-pcoa.coral.core.season <- plot_ordination(ps.core.coral, ordinate(ps.core.coral,"PCoA", "bray"),color="season", shape="season")+
+pcoa.coral.season <- plot_ordination(ps.coral, ordinate(ps.coral,"PCoA", "bray"),color="season", shape="season")+
   stat_ellipse()+
   theme_cowplot()+
   scale_color_manual(name="Season",values=c("darkorchid4","goldenrod1"))+
   scale_shape_manual(name="Season",values=c(8,4))+
-  xlab("Axis 1 (40.5%)")+
-  ylab("Axis 2 (19%)")+
+  #xlab("Axis 1 (40.5%)")+
+  #ylab("Axis 2 (19%)")+
   ggtitle("Rarefied (Coral)")
 
-pcoa.coral.core.symbstate <- plot_ordination(ps.core.coral, ordinate(ps.core.coral,"PCoA", "bray"),color="symbstate", shape="symbstate")+
+pcoa.coral.ss <- plot_ordination(ps.coral, ordinate(ps.coral,"PCoA", "bray"),color="symbstate", shape="symbstate")+
   stat_ellipse()+
   theme_cowplot()+
   scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
@@ -233,445 +124,90 @@ pcoa.coral.core.symbstate <- plot_ordination(ps.core.coral, ordinate(ps.core.cor
  # ylab("Axis 2 (19%)")+
   ggtitle("Rarefied (Coral)")
 
-pcoa.coral.core.site
-pcoa.coral.core.season
-pcoa.coral.core.symbstate
-
-#ggsave(pcoa.coral.core.site,file="./figures/pcoa.coral.core.site.pdf",height=4)
-#ggsave(pcoa.coral.core.season,file="./figures/pcoa.coral.core.season.pdf",height=4)
-#ggsave(pcoa.coral.core.symbstate,file="./figures/pcoa.coral.core.symbstate.pdf",height=4)
-
-```
-```{r PCoA coral core all sites}
-#season
-pcoa.coral.core.season.all <- plot_ordination(ps.core.coral,ordinate(ps.core.coral,"PCoA", "bray"),color="season", shape="season")+
-  stat_ellipse()+
-  theme_cowplot()+
-  scale_colour_manual(name="Season", values=c("#8405A7FF","#ED7953FF"))+
-  scale_shape_manual(name="Season",values=c(8,4))+
-  xlab("Axis 1 (40.5%)")+
-  ylab("Axis 2 (19%)")+
-  ggtitle("Rarefied (Coral)")+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-
-#symbstate
-pcoa.coral.core.symbstate.all <- plot_ordination(ps.core.coral,ordinate(ps.core.coral,"PCoA", "bray"),color="symbstate",shape="symbstate")+
-  stat_ellipse()+
-  theme_cowplot()+
-  scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
-  scale_shape_manual(name="Symbiotic State",values=c(8,4),labels=c("Aposymbiotic","Symbiotic"))+
-  xlab("Axis 1 (40.5%)")+
-  ylab("Axis 2 (19%)")+
-  ggtitle("Rarefied (Coral)")+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-
-pcoa.coral.core.season.all
-pcoa.coral.core.symbstate.all
-
-#ggsave(pcoa.coral.core.season.all,file="./figures/pcoa.coral.core.season.all.pdf",width=8,height=4)
-#ggsave(pcoa.coral.core.symbstate.all,file="./figures/pcoa.coral.core.symbstate.all.pdf",width=9,height=5)
-
-```
-
-```{r PCoA plots core all types}
-pcoa.core.alltypes <- plot_ordination(pseq.core,ordinate(pseq.core,"PCoA", "bray"),color="type", shape="type")+
-  stat_ellipse()+
-  theme_cowplot()+
-  scale_color_manual(name="Type",values=c("bisque2","paleturquoise3","chocolate4"))+
-  scale_shape_manual(name="Type",values=c(8,4,9))+
-  xlab("Axis 1 (25.8%)")+
-  ylab("Axis 2 (22.5%)")+
-  ggtitle("Rarefied (Coral)")+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-
-pcoa.core.alltypes
- 
-#ggsave(pcoa.core.alltypes,file="./figures/pcoa.core.alltypes.pdf",width=8,height=4)
-
- 
-```
-
-
-```{r calculate core abundance, eval=FALSE}
-# I DON'T THINK I NEED THIS CODE
-# calculating core abundances #
-core.sqs <- tax_table(pseq.core)
-core.sqs.ids <- row.names(core.sqs)
-core.sqs.ids
-ps.rare.trim.rel <- transform_sample_counts(ps.rare.trim, function(x) x / sum(x))
-seq.rare.rel <- data.frame(otu_table(ps.rare.trim.rel))
-tax.core <- tax_table(ps.rare.trim.rel)
-seq.core <- seq.rare.rel %>% select(c(core.sqs.ids))
-core.rel <- data.frame(colMeans(seq.core))
-total.rel <- data.frame(colMeans(seq.rare.rel))
-total.rel.ordered <- data.frame(total.rel[order(-total.rel$colMeans.seq.rare.rel.),,drop=FALSE])
-seq.core <- data.frame(otu_table(pseq.core))
-seq.core <- data.frame(otu_table(pseq.core.rel))
-dist.core <- vegdist(seq.core)
-samdf.core <- data.frame(sample_data(pseq.core))
-row.names(samdf.core)==row.names(seq.core)
-bet.all <- betadisper(dist.core,samdf.core$zone)
-```
-
-### Core stats
-```{r calculate coral core abundance, eval=FALSE}
-# calculating core abundances #
-core.coral.sqs <- tax_table(ps.core.coral)
-core.coral.sqs.ids <- row.names(core.coral.sqs)
-core.coral.sqs.ids
-ps.coral.rare.rel <- transform_sample_counts(ps.coral, function(x) x / sum(x))
-seq.coral.rare.rel <- data.frame(otu_table(ps.coral.rare.rel))
-tax.core.coral <- tax_table(ps.coral.rare.rel)
-seq.core.coral <- seq.coral.rare.rel %>% select(c(core.coral.sqs.ids))
-core.coral.rel <- data.frame(colMeans(seq.core.coral))
-total.coral.rel <- data.frame(colMeans(seq.coral.rare.rel))
-total.coral.rel.ordered <- data.frame(total.rel[order(-total.coral.rel$colMeans.seq.coral.rare.rel.),,drop=FALSE])
-```
-
-```{r core stats}
-seq.core.coral <- data.frame(otu_table(ps.core.coral))
-#seq.core.coral <- data.frame(otu_table(ps.core.coral.rel)) *when I did this, row.names were all false below -- this didn't happen when I initially ran this code for ps.rare (all sample types), so should double check this later*
-dist.core.coral <- vegdist(seq.core.coral)
-samdf.core.coral <- data.frame(sample_data(ps.core.coral))
-row.names(samdf.core.coral)==row.names(seq.core.coral)
-bet.all <- betadisper(dist.core.coral,samdf.core.coral$site)
-#anova(bet.all)
-plot(bet.all) #mostly overlap
-permutest(bet.all, pairwise = TRUE, permutations = 999) #not sig for any
-# Pairwise comparisons:
-# (Observed p-value below diagonal, permuted p-value above diagonal)
-#      CL      NR    RI
-#CL         0.94000 0.504
-#NR 0.92569         0.630
-#RI 0.50830 0.60444       
-
-bet.all <- betadisper(dist.core.coral,samdf.core.coral$season)
-plot(bet.all) #really overlap
-permutest(bet.all, pairwise = TRUE, permutations = 999) #not sig for any
-#          Fall Summer
-#Fall             0.39
-#Summer 0.36725   
-
-adonis(seq.core.coral ~ site, data=samdf.core.coral, permutations=999)
-#          Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)  
-#site       2    1.0470 0.52349  2.3414 0.10971  0.026 *
-#Residuals 38    8.4960 0.22358         0.89029         
-#Total     40    9.5429                 1.00000 
-
-adonis(seq.core.coral ~ season, data=samdf.core.coral, permutations=999)
-#          Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)
-#season     1    0.3211 0.32115  1.3582 0.03365  0.229
-#Residuals 39    9.2218 0.23646         0.96635       
-#Total     40    9.5429                 1.00000   
-
-adonis(seq.core.coral ~ symbstate, data=samdf.core.coral, permutations=999)
-#          Df SumsOfSqs MeanSqs F.Model    R2 Pr(>F)
-#symbstate  1    0.3340 0.33404  1.4146 0.035  0.217
-#Residuals 39    9.2089 0.23613         0.965       
-#Total     40    9.5429                 1.000   
-
-adonis(seq.core.coral ~ season*site, data=samdf.core.coral, permutations=999)
-#            Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)  
-#season       1    0.3211 0.32115  1.4549 0.03365  0.210  
-#site         2    0.9782 0.48910  2.2158 0.10251  0.032 *
-#season:site  1    0.2971 0.29708  1.3458 0.03113  0.256  
-#Residuals   36    7.9465 0.22074         0.83271         
-#Total       40    9.5429                 1.00000   
-
-pairwise.adonis(seq.core.coral, factors = samdf.core.coral$site, permutations = 999)
-#  pairs   F.Model     R2       p.value  p.adjusted
-#NR vs RI	2.489729	0.07663126   	0.036	   0.036  *
-#NR vs CL	3.080753	0.13347715  	0.021	   0.021  *
-#RI vs CL	1.617150	0.05855601  	0.158    0.158
-
-```
-
-### Core stats by site
-
-```{r core stats site}
-#subset by site (done above)
-#could try rel abundance too:
-  #ps.core.coral.NR <- subset_samples(ps.core.coral.rel,site=="NR")
-  #ps.core.coral.RI <- subset_samples(ps.core.coral.rel,site=="RI")
-  #ps.core.coral.CL <- subset_samples(ps.core.coral.rel,site=="CL")
-
-#### NR ####
-seq.core.coral.NR <- data.frame(otu_table(ps.core.coral.NR))
-dist.core.coral.NR <- vegdist(seq.core.coral.NR)
-samdf.core.coral.NR <- data.frame(sample_data(ps.core.coral.NR))
-row.names(samdf.core.coral.NR)==row.names(seq.core.coral.NR)
-
-#season
-bet.all <- betadisper(dist.core.coral.NR,samdf.core.coral.NR$season)
-anova(bet.all) #ns
-plot(bet.all) #overlap, not sig
-adonis(seq.core.coral.NR ~ season,data=samdf.core.coral.NR, permutations=999) #not sig
-
-#symb state
-bet.all <- betadisper(dist.core.coral.NR,samdf.core.coral.NR$symbstate)
-anova(bet.all)
-plot(bet.all) #partially overlap but look quite different
-adonis(seq.core.coral.NR ~ symbstate,data=samdf.core.coral.NR, permutations=999) #not sig
-
-#### RI ####
-seq.core.coral.RI <- data.frame(otu_table(ps.core.coral.RI))
-dist.core.coral.RI <- vegdist(seq.core.coral.RI)
-samdf.core.coral.RI <- data.frame(sample_data(ps.core.coral.RI))
-row.names(samdf.core.coral.RI)==row.names(seq.core.coral.RI)
-
-#season
-bet.all <- betadisper(dist.core.coral.RI,samdf.core.coral.RI$season)
-anova(bet.all) #ns
-plot(bet.all) #some overlap
-adonis(seq.core.coral.RI ~ season,data=samdf.core.coral.RI, permutations=999) #not sig
-
-#symb state
-bet.all <- betadisper(dist.core.coral.RI,samdf.core.coral.RI$symbstate)
-anova(bet.all) #not sig
-plot(bet.all) #overlap quite a bit
-adonis(seq.core.coral.RI ~ symbstate,data=samdf.core.coral.RI, permutations=999) #PR = 0.1, so almost kinda sig?
-
-#### CL ####
-seq.core.coral.CL <- data.frame(otu_table(ps.core.coral.CL))
-dist.core.coral.CL <- vegdist(seq.core.coral.CL)
-samdf.core.coral.CL <- data.frame(sample_data(ps.core.coral.CL))
-row.names(samdf.core.coral.CL)==row.names(seq.core.coral.CL)
-
-#symb state
-bet.all <- betadisper(dist.core.coral.CL,samdf.core.coral.CL$symbstate)
-anova(bet.all) #not sig
-plot(bet.all) #don't overlap that much
-adonis(seq.core.coral.CL ~ symbstate,data=samdf.core.coral.CL, permutations=999) #not sig
-
-```
-
-## Accessory
-
-```{r accessory}
-ps.coral.otu <- data.frame(ps.coral@otu_table)
-#ps.rare.trim.otu <- data.frame(ps.rare.trim@otu_table)
-core.coral.tax <- data.frame(ps.core.coral@tax_table)
-core.coral.ids <- c(rownames(core.coral.tax))
-ps.coral.acc.otu <- ps.coral.otu[,!colnames(ps.coral.otu) %in% core.coral.ids ]
-row.names(samdf) <- samdf$id
-#remake phyloseq object
-ps.acc.coral <- phyloseq(otu_table(ps.coral.acc.otu, taxa_are_rows=FALSE), 
-                         sample_data(samdf), 
-                         tax_table(taxa2))
-ps.acc.coral #4809 taxa accessory
-pcoa.acc.coral.all.site <- plot_ordination(ps.acc.coral,ordinate(ps.acc.coral,"PCoA", "bray"),color="site", shape="site")+
-  stat_ellipse()+
-  theme_cowplot()+
-  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
-  scale_shape_manual(name="Site",values=c(8,4,9))+
-  xlab("Axis 1 (10.2%)")+
-  ylab("Axis 2 (7.7%)")+
-  ggtitle("Rarefied (Coral)")
-#ggsave(pcoa.acc.coral.all.site,file="./figures/pcoa.acc.coral.all.site.pdf",height=4)
-
-plot_ordination(ps.acc.coral,ordinate(ps.acc.coral,"PCoA", "bray"),color="symbstate", shape="symbstate")+
-  stat_ellipse()+
-  theme_cowplot()
-
-plot_ordination(ps.acc.coral,ordinate(ps.acc.coral,"PCoA", "bray"),color="season", shape="season")+
-  stat_ellipse()+
-  theme_cowplot()
-```
-
-```{r stats acc - site}
-#seq.acc <- data.frame(otu_table(ps.acc))
-ps.acc.coral.rel <- transform_sample_counts(ps.acc.coral, function(x) x / sum(x))
-seq.acc.coral <- data.frame(otu_table(ps.acc.coral.rel))
-dist.acc.coral <- vegdist(seq.acc.coral)
-samdf.acc.coral <- data.frame(sample_data(ps.acc.coral))
-row.names(samdf.acc.coral)==row.names(seq.acc.coral)
-bet.all <- betadisper(dist.acc.coral,samdf.acc.coral$site)
-anova(bet.all) #sig*
-plot(bet.all) 
-permutest(bet.all, pairwise = TRUE, permutations = 999) #RI sig diff from NR and CL
-  #Pairwise comparisons:
-  #(Observed p-value below diagonal, permuted p-value above
-  #diagonal)
-  #      CL         NR      RI
-  #CL           0.9890000 0.006
-  #NR 0.9922739           0.031
-  #RI 0.0072632 0.0300554      
-
-bet.all <- betadisper(dist.acc.coral,samdf.acc.coral$season)
-#anova(bet.all) #not sig
-permutest(bet.all, pairwise = TRUE, permutations = 999) #no diff in disp
-plot(bet.all) 
-
-bet.all <- betadisper(dist.acc.coral,samdf.acc.coral$symbstate)
-anova(bet.all) #not sig
-permutest(bet.all, pairwise = TRUE, permutations = 999) 
-plot(bet.all) 
-
-adonis(seq.acc.coral ~ site, data=samdf.acc.coral, permutations=999)
-#          Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)    
-#site       2     1.477 0.73848  1.9123 0.09145  0.001 ***
-#Residuals 38    14.674 0.38616         0.90855           
-#Total     40    16.151                 1.00000    
-adonis(seq.acc.coral ~ site/season, data=samdf.acc.coral, permutations=999)
-#            Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)    
-#site         2     1.477 0.73848  2.0178 0.09145  0.001 ***
-#site:season  2     1.499 0.74949  2.0479 0.09281  0.001 ***
-#Residuals   36    13.175 0.36598         0.81574           
-#Total       40    16.151                 1.00000           
-
-adonis(seq.acc.coral ~ season, strata=samdf.acc.coral$site,data=samdf.acc.coral, permutations=999)
-#          Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)    
-#season     1    1.1153 1.11530  2.8929 0.06905  0.001 ***
-#Residuals 39   15.0357 0.38553         0.93095           
-#Total     40   16.1510                 1.00000     
-
-adonis(seq.acc.coral ~ symbstate, strata=samdf.acc.coral$site,data=samdf.acc.coral, permutations=999)
-#          Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)
-#symbstate  1     0.450 0.44996  1.1177 0.02786  0.137
-#Residuals 39    15.701 0.40259         0.97214       
-#Total     40    16.151                 1.00000  
-
-pairwise.adonis(seq.acc.coral, factors = samdf.acc.coral$site, permutations = 999) #p < 0.001***
-# pairs     F.Model    R2      p.value p.adjusted
-#NR vs RI	1.858796	0.05834482	0.001  	0.001
-#NR vs CL	2.029699	0.09213467	0.001  	0.001
-#RI vs CL	1.891417	0.06781360	0.002  	0.002
-
-```
-
-```{r accessory by site and symbstate}
-#by site
-ps.acc.coral.NR <- subset_samples(ps.acc.coral,site=="NR")
-ps.acc.coral.RI <- subset_samples(ps.acc.coral,site=="RI")
-ps.acc.coral.CL <- subset_samples(ps.acc.coral,site=="CL")
-
-pcoa.coral.acc.symbstate.all <- plot_ordination(ps.acc.coral,ordinate(ps.acc.coral,"PCoA", "bray"),color="symbstate", shape="symbstate")+
-  stat_ellipse()+
-  theme_cowplot()+
-  scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
-  scale_shape_manual(name="Symbiotic State",values=c(8,4))+
-  xlab("Axis 1 (10.2%)")+
-  ylab("Axis 2 (7.7%)")+
-  ggtitle("Rarefied (Coral)")+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-pcoa.coral.acc.symbstate.all
-
-#ggsave(pcoa.coral.acc.symbstate.all,file="./figures/pcoa.coral.acc.symbstate.all.pdf",width=9,height=4)
-
-```
-
-```{r accessory by site and season}
-pcoa.coral.acc.season.all <- plot_ordination(ps.acc.coral,ordinate(ps.acc.coral,"PCoA", "bray"),color="season", shape="season")+
+pcoa.coral.season.all <- plot_ordination(ps.coral,ordinate(ps.coral,"PCoA", "bray"),color="season", shape="season")+
   stat_ellipse()+
   theme_cowplot()+
   scale_colour_manual(name="Season", values=c("#8405A7FF","#ED7953FF"))+
   scale_shape_manual(name="Season",values=c(8,4))+
   #xlab("Axis 1 (40.5%)")+
-  #ylab("Axis 2 (19%)")+
+ # ylab("Axis 2 (19%)")+
   ggtitle("Rarefied (Coral)")+
   facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
 
-pcoa.coral.acc.season.all
-#ggsave(pcoa.coral.acc.season.all,file="./figures/pcoa.coral.acc.season.all.pdf",width=9,height=4)
-
-```
-
-```{r by site coral NR}
-seq.acc.coral.NR <- data.frame(otu_table(ps.acc.coral.NR))
-dist.acc.coral.NR <- vegdist(seq.acc.coral.NR)
-samdf.acc.coral.NR <- data.frame(sample_data(ps.acc.coral.NR))
-row.names(samdf.acc.coral.NR)==row.names(seq.acc.coral.NR)
-#symbstate
-bet.all <- betadisper(dist.acc.coral.NR,samdf.acc.coral.NR$symbstate)
-anova(bet.all) #not sig
-plot(bet.all) # mostly overlap
-adonis(seq.acc.coral.NR ~ symbstate,data=samdf.acc.coral.NR, permutations=999) #not sig
-#season
-bet.all <- betadisper(dist.acc.coral.NR,samdf.acc.coral.NR$season)
-anova(bet.all) #not sig
-plot(bet.all) 
-adonis(seq.acc.coral.NR ~ season,data=samdf.acc.coral.NR, permutations=999) #ns
-
-```
-
-```{r by site coral RI}
-seq.acc.coral.RI <- data.frame(otu_table(ps.acc.coral.RI))
-dist.acc.coral.RI <- vegdist(seq.acc.coral.RI)
-samdf.acc.coral.RI <- data.frame(sample_data(ps.acc.coral.RI))
-row.names(samdf.acc.coral.RI)==row.names(seq.acc.coral.RI)
-#symbstate
-bet.all <- betadisper(dist.acc.coral.RI,samdf.acc.coral.RI$symbstate)
-anova(bet.all) #not sig
-plot(bet.all) # some overlap
-adonis(seq.acc.coral.NR ~ symbstate,data=samdf.acc.coral.NR, permutations=999) #not sig
-#season
-bet.all <- betadisper(dist.acc.coral.RI,samdf.acc.coral.RI$season)
-anova(bet.all) 
-plot(bet.all) #NO OVERLAP
-adonis(seq.acc.coral.RI ~ season,data=samdf.acc.coral.RI, permutations=999)
-#          Df SumsOfSqs MeanSqs F.Model     R2 Pr(>F)  
-#season     1    0.9911 0.99111  2.6029 0.13278  0.001 ***
-#Residuals 17    6.4731 0.38077         0.86722           
-#Total     18    7.4642                 1.00000  
-
-```
-
-```{r by site coral CL}
-seq.acc.coral.CL <- data.frame(otu_table(ps.acc.coral.CL))
-dist.acc.coral.CL <- vegdist(seq.acc.coral.CL)
-samdf.acc.coral.CL <- data.frame(sample_data(ps.acc.coral.CL))
-row.names(samdf.acc.coral.CL)==row.names(seq.acc.coral.CL)
-#symbstate
-bet.all <- betadisper(dist.acc.coral.CL,samdf.acc.coral.CL$symbstate)
-anova(bet.all) #not sig
-plot(bet.all) # some overlap
-adonis(seq.acc.coral.NR ~ symbstate,data=samdf.acc.coral.NR, permutations=999) #not sig
-```
-
-
-# Bar plots [needs fixing] {.tabset}
-
-## All, by Phylum
-
-```{r bar plot, eval=FALSE}
-#Doesn't work great for my data -- not sure if it's supposed to look how it did or if it's just bc I have so many taxa
-ps.allid <- merge_samples(ps.coral, "all_id")
-ps.rel.allid <- transform_sample_counts(ps.allid, function(x) x / sum(x))
-
-#all id
-plot_bar(ps.rel.allid, fill="Phylum")+
-  geom_bar(stat="identity")
-
-#rel by site
-plot_bar(ps2.coral.site, fill="Phylum")+
-  geom_bar(stat="identity")
-
-#rel by symbstate
-plot_bar(ps2.coral.ss, fill="Phylum")+
-  geom_bar(stat="identity")
-
-#rel by season
-plot_bar(ps2.coral.seas, fill="Phylum")+
-  geom_bar(stat="identity")
-
-ps.all.tab <- psmelt(ps.coral)%>%
-  filter(!is.na(Abundance))%>%
-  group_by(site,season,symbstate,all_id,Phylum,OTU)%>%
-  summarize_at("Abundance",mean)
-
-#ps.all.tab$site[ps.all.tab$site == "NR"] <- "NR"
-#ps.all.tab$site[ps.all.tab$site == "RI"] <- "RI"
-#ps.all.tab$site[ps.all.tab$site == "CL"] <- "CL"
-#ps.all.tab$season[ps.all.tab$season == "Summer"] <- "Summer"
-#ps.all.tab$season[ps.all.tab$season == "Fall"] <- "Fall"
-gg.bar.all.phy <- ggplot(ps.all.tab,aes(x=site,y=Abundance,fill=Phylum))+
-  geom_bar(stat="identity")+
+pcoa.coral.ss.all <- plot_ordination(ps.coral,ordinate(ps.coral,"PCoA", "bray"),color="symbstate",shape="symbstate")+
+  stat_ellipse()+
   theme_cowplot()+
-  #theme(legend.position="none")+
-  facet_wrap(~site)
-gg.bar.all.phy
-#ggsave(gg.bar.all,file="bac.bar.all.pdf",height=4)
+  scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
+  scale_shape_manual(name="Symbiotic State",values=c(8,4),labels=c("Aposymbiotic","Symbiotic"))+
+  #xlab("Axis 1 (40.5%)")+
+ # ylab("Axis 2 (19%)")+
+  ggtitle("Rarefied (Coral)")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+pcoa.alltypes <- plot_ordination(ps.rare,ordinate(ps.rare,"PCoA", "bray"),color="type", shape="type")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_color_manual(name="Type",values=c("bisque2","paleturquoise3","chocolate4"))+
+  scale_shape_manual(name="Type",values=c(8,4,9))+
+  #xlab("Axis 1 (25.8%)")+
+  #ylab("Axis 2 (22.5%)")+
+  ggtitle("Rarefied (Coral)")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+#ggsave(pcoa.coral.site,file="./figures/pcoa.coral.site.pdf",width=8,height=4)
+#ggsave(pcoa.coral.season,file="./figures/pcoa.coral.season.pdf",width=8,height=4)
+#ggsave(pcoa.coral.ss,file="./figures/pcoa.coral.ss.pdf",width=8,height=4)
+#ggsave(pcoa.coral.season.all,file="./figures/pcoa.coral.season.all.pdf",width=8,height=4)
+#ggsave(pcoa.coral.ss.all,file="./figures/pcoa.coral.ss.all.pdf",width=9,height=5)
+#ggsave(pcoa.alltypes,file="./figures/pcoa.alltypes.pdf",width=9,height=5)
 ```
+
+
+### Stats
+
+```{r stats for coral}
+seq.coral <- data.frame(otu_table(ps.coral))
+dist.coral <- vegdist(seq.coral)
+samdf.coral <- data.frame(sample_data(ps.coral))
+row.names(samdf.coral)==row.names(seq.coral)
+bet.all <- betadisper(dist.coral,samdf.coral$site)
+#anova(bet.all)
+plot(bet.all) #mostly overlap
+permutest(bet.all, pairwise = TRUE, permutations = 999) #not sig for any
+#Response: Distances
+#          Df   Sum Sq   Mean Sq      F N.Perm Pr(>F)  
+#Groups     2 0.047477 0.0237384 3.2692    999  0.054 .
+#Residuals 38 0.275928 0.0072613                       
+
+#Pairwise comparisons:
+#(Observed p-value below diagonal, permuted p-value above diagonal)
+#          CL        NR    RI
+#CL           0.4670000 0.006
+#NR 0.4528432           0.109
+#RI 0.0069592 0.0950158    
+
+bet.all <- betadisper(dist.coral,samdf.coral$season)
+plot(bet.all)
+permutest(bet.all, pairwise = TRUE, permutations = 999) #not sig at all
+
+bet.all <- betadisper(dist.coral,samdf.coral$symbstate)
+plot(bet.all)
+permutest(bet.all, pairwise = TRUE, permutations = 999) #not sig
+
+# adonis
+adonis2(seq.coral ~ site, data=samdf.coral, permutations=999)
+#         Df SumOfSqs      R2     F Pr(>F)    
+#site      2   1.4922 0.10055 2.124  0.001 ***
+#Residual 38  13.3483 0.89945                 
+#Total    40  14.8406 1.00000     
+
+adonis2(seq.coral ~ season, data=samdf.coral, permutations=999) #*** ??
+adonis2(seq.coral ~ symbstate, data=samdf.coral, permutations=999) #not sig
+
+
+```
+
+
 
 
 # ANCOM
