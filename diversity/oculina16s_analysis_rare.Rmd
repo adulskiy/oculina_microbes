@@ -550,8 +550,10 @@ samdf.rare <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove),
 
 #variable1 = as.character(get_variable(samdf.rare, "type"))
 #sample_data(ps.all)$type <- mapply(paste0, variable1)
+all(rownames(samdf.rare) %in% sample_names(ps.all))
+samdf.rare = sample_data(samdf.rare)
 merge_phyloseq(ps.all, samdf.rare)
-
+head(sample_data(ps.all))
 
 #overall by all_id
 ps_glom.rare <- tax_glom(ps.rare, "Genus")
@@ -583,8 +585,9 @@ ps1.coral.symbstate <- merge_samples(ps.coral, "symbstate")
 ps.coral.symbstate <- transform_sample_counts(ps1.coral.symbstate, function(x) x / sum(x))
 
 # Use microshades function prep_mdf to agglomerate, normalize, and melt the phyloseq object
+mdf.prep.rare <- prep_mdf(ps.rare, subgroup_level="Genus")
 mdf.prep <- prep_mdf(ps.all, subgroup_level="Genus")
-mdf.prep.rare <- prep_mdf(ps.rare.allid, subgroup_level = "Genus")
+mdf.prep.rare.allid <- prep_mdf(ps.rare.allid, subgroup_level = "Genus")
 mdf.prep.rare.type <- prep_mdf(ps.rare.type, subgroup_level = "Family")
 mdf.prep.allid <- prep_mdf(ps.coral.allid, subgroup_level = "Family")
 mdf.prep.site <- prep_mdf(ps.coral.site, subgroup_level = "Family")
@@ -592,8 +595,9 @@ mdf.prep.season <- prep_mdf(ps.coral.season, subgroup_level = "Family")
 mdf.prep.symbstate <- prep_mdf(ps.coral.symbstate, subgroup_level = "Family")
 
 # Create a color object for the specified data
+color.obj.rare <- create_color_dfs(mdf.prep.rare, group_level = "Phylum", subgroup_level = "Genus", cvd = TRUE)
 color.obj <- create_color_dfs(mdf.prep, group_level = "Phylum", subgroup_level = "Genus", cvd = TRUE)
-color.obj.rare <- create_color_dfs(mdf.prep.rare, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
+color.obj.rare.allid <- create_color_dfs(mdf.prep.rare.allid, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.rare.type <- create_color_dfs(mdf.prep.rare.type, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.allid <- create_color_dfs(mdf.prep, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.site <- create_color_dfs(mdf.prep.site, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
@@ -602,10 +606,12 @@ color.obj.symbstate <- create_color_dfs(mdf.prep.symbstate, group_level = "Phylu
 
 
 # Extract
+mdf.rare <- color.obj.rare$mdf
+cdf.rare <- color.obj.rare$cdf
 mdf <- color.obj$mdf
 cdf <- color.obj$cdf
-mdf.rare <- color.obj.rare$mdf #contains sample data and abundance info
-cdf.rare <- color.obj.rare$cdf #contains color mapping info
+mdf.rare.allid <- color.obj.rare$mdf #contains sample data and abundance info
+cdf.rare.allid <- color.obj.rare$cdf #contains color mapping info
 mdf.rare.type <- color.obj.rare.type$mdf 
 cdf.rare.type <- color.obj.rare.type$cdf 
 mdf.coral.allid <- color.obj$mdf.allid
@@ -616,7 +622,6 @@ mdf.coral.season <- color.obj.season$mdf
 cdf.coral.season <- color.obj.season$cdf
 mdf.coral.symbstate <- color.obj.symbstate$mdf
 cdf.coral.symbstate <- color.obj.symbstate$cdf
-
 ```
 
 
@@ -688,11 +693,23 @@ plot_3 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
 
 
 ```{r facet wrap}
-plot1 + 
-  theme(legend.key.size = unit(0.2, "cm"), text=element_text(size=10)) +
+# remove current Sample column (currently a repeat of id), and then rename fullname = Sample
+#library(dplyr)
+mdf.rare <- mdf.rare %>%
+  select(-Sample) %>%
+  rename(Sample = fullname) %>%
+  rename(number = sample)
+
+plot.rare <- plot_microshades(mdf.rare, cdf.rare, group_label = "Phylum Genus")
+
+plot.rare + 
+  theme(legend.key.size = unit(0.5, "cm"), text=element_text(size=10)) +
   theme(axis.text.x = element_text(size= 6)) +
   facet_grid(~type, scales = "free_x", space="free") +
-  theme (strip.text.x = element_text(size = 6))
+  theme (strip.text.x = element_text(size = 10))
+  
 ```
+
+
 
 
