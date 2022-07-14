@@ -207,6 +207,73 @@ adonis2(seq.coral ~ symbstate, data=samdf.coral, permutations=999) #not sig
 
 ```
 
+### Stats by site
+```{r}
+#subset by site (done above)
+  #ps.coral.NR <- subset_samples(ps.coral,site=="NR")
+  #ps.coral.RI <- subset_samples(ps.coral,site=="RI")
+  #ps.coral.CL <- subset_samples(ps.coral,site=="CL")
+
+#### NR ####
+seq.coral.NR <- data.frame(otu_table(ps.coral.NR))
+dist.coral.NR <- vegdist(seq.coral.NR)
+samdf.coral.NR <- data.frame(sample_data(ps.coral.NR))
+row.names(samdf.coral.NR)==row.names(seq.coral.NR)
+
+#season
+bet.all <- betadisper(dist.coral.NR,samdf.coral.NR$season)
+anova(bet.all) #ns
+plot(bet.all)
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
+adonis2(seq.coral.NR ~ season,data=samdf.coral.NR, permutations=999) #ns 
+
+#symb state
+bet.all <- betadisper(dist.coral.NR,samdf.coral.NR$symbstate)
+anova(bet.all)
+plot(bet.all) #partially overlap but look quite different
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
+adonis2(seq.coral.NR ~ symbstate,data=samdf.coral.NR, permutations=999) #not sig
+
+
+### RI ###
+seq.coral.RI <- data.frame(otu_table(ps.coral.RI))
+dist.coral.RI <- vegdist(seq.coral.RI)
+samdf.coral.RI <- data.frame(sample_data(ps.coral.RI))
+row.names(samdf.coral.RI)==row.names(seq.coral.RI)
+
+#season
+bet.all <- betadisper(dist.coral.RI,samdf.coral.RI$season)
+anova(bet.all) #ns
+plot(bet.all) #no overlap
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
+adonis2(seq.coral.RI ~ season,data=samdf.coral.RI, permutations=999) 
+#         Df SumOfSqs      R2      F Pr(>F)   
+#season    1   0.9091 0.13282 2.6038  0.002 **
+#Residual 17   5.9357 0.86718                 
+#Total    18   6.8448 1.00000       
+
+#symb state
+bet.all <- betadisper(dist.coral.RI,samdf.coral.RI$symbstate)
+anova(bet.all)
+plot(bet.all)
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
+adonis2(seq.coral.RI ~ symbstate,data=samdf.coral.RI, permutations=999) #ns
+
+### CL ###
+seq.coral.CL <- data.frame(otu_table(ps.coral.CL))
+dist.coral.CL <- vegdist(seq.coral.CL)
+samdf.coral.CL <- data.frame(sample_data(ps.coral.CL))
+row.names(samdf.coral.CL)==row.names(seq.coral.CL)
+
+#symb state
+bet.all <- betadisper(dist.coral.CL,samdf.coral.CL$symbstate)
+anova(bet.all)
+plot(bet.all)
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
+adonis2(seq.coral.CL ~ symbstate,data=samdf.coral.CL, permutations=999) #ns
+
+```
+
 
 
 
@@ -230,14 +297,24 @@ source("ancom.R")
 
 
 ```{r ancom all, eval=FALSE}
-#ps.trim.coral <-  subset_samples(ps.less.trim,type=="coral")
-ps.rare.trim.coral <-  subset_samples(ps.rare.trim,type=="coral")
-#otu_data_unt <- data.frame(ps.trim.coral@otu_table)
-otu_data_unt <- data.frame(ps.rare.trim.coral@otu_table)
+# shouldn't use rarefied data according to authors
+# remove rows from ps.cleanest for unrarerified data
+load("~/oculina/data/ps.cleanest.Rdata")
+seqtab.cleanest <- read.csv("~/oculina/data/oculina16s_seqtab.cleanest.csv",row.names=1)
+row.names.remove <- c("D6","F3","H2","F7","H4","H7")
+samdf.cleanest <- data.frame(ps.cleanest@sam_data)
+samdf.cleanest <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove), ]
+ps.cleanest.less <- phyloseq(otu_table(seqtab.cleanest, taxa_are_rows=FALSE), 
+                         sample_data(samdf.cleanest), 
+                         tax_table(taxa2))
+#save(ps.cleanest.less,file="ps.cleanest.less.Rdata")
+
+#subset coral
+ps.less.coral <- subset_samples(ps.cleanest.less,type=="coral")
+otu_data_unt <- data.frame(ps.less.coral@otu_table)
 otu_data<- data.frame(t(otu_data_unt))
 #might need to make the sample names an actual row yet, not sure
-meta_data = data.frame(ps.rare.trim.coral@sam_data)
-#meta_data = data.frame(ps.clean.coral@sam_data)
+meta_data = data.frame(ps.less.coral@sam_data)
 meta_data = meta_data %>% rename(Sample.ID = id)
 # Step 1: Data preprocessing
 feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
