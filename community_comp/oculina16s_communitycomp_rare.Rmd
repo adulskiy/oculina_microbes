@@ -300,21 +300,27 @@ source("ancom.R")
 # shouldn't use rarefied data according to authors
 # remove rows from ps.cleanest for unrarerified data
 load("~/oculina/data/ps.cleanest.Rdata")
-seqtab.cleanest <- read.csv("~/oculina/data/oculina16s_seqtab.cleanest.csv",row.names=1)
-row.names.remove <- c("D6","F3","H2","F7","H4","H7")
-samdf.cleanest <- data.frame(ps.cleanest@sam_data)
-samdf.cleanest <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove), ]
-ps.cleanest.less <- phyloseq(otu_table(seqtab.cleanest, taxa_are_rows=FALSE), 
-                         sample_data(samdf.cleanest), 
-                         tax_table(taxa2))
+#seqtab.cleanest <- read.csv("~/oculina/data/oculina16s_seqtab.cleanest.csv",row.names=1)
+#row.names.remove <- c("D6","F3","H2","F7","H4","H7")
+#samdf.cleanest <- data.frame(ps.cleanest@sam_data)
+#samdf.cleanest <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove), ]
+#ps.cleanest.less <- phyloseq(otu_table(seqtab.cleanest, taxa_are_rows=FALSE), 
+ #                        sample_data(samdf.cleanest), 
+  #                       tax_table(taxa2))
 #save(ps.cleanest.less,file="ps.cleanest.less.Rdata")
 
 #subset coral
+#ps.less.coral <- subset_samples(ps.cleanest.less,type=="coral")
+
+#load("~/oculina/data/ps.trim.RData")
+#load("~/oculina/community_comp/ps.cleanest.less.Rdata")
 ps.less.coral <- subset_samples(ps.cleanest.less,type=="coral")
+#ps.trim.coral <- subset_samples(ps.trim,type=="coral")
 otu_data_unt <- data.frame(ps.less.coral@otu_table)
+#otu_data_unt <- data.frame(ps.trim.coral@otu_table)
 otu_data<- data.frame(t(otu_data_unt))
-#might need to make the sample names an actual row yet, not sure
 meta_data = data.frame(ps.less.coral@sam_data)
+#meta_data = data.frame(ps.trim.coral@sam_data)
 meta_data = meta_data %>% rename(Sample.ID = id)
 # Step 1: Data preprocessing
 feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
@@ -365,7 +371,6 @@ fig = res.season.all$fig +
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
 fig  
 
-
 ```
 
 ## ANCOM by site{.tabset}
@@ -377,11 +382,11 @@ Ran these three chunks once, then loading in data below
 ### NR
 
 
-```{r ancom NR, eval=FALSE}
-ps.clean.coral.NR <- subset_samples(ps.clean.coral,site=="NR")
-otu_data_unt <- data.frame(ps.clean.coral.NR@otu_table)
+```{r ancom NR symb state, eval=FALSE}
+ps.less.coral.NR <- subset_samples(ps.less.coral,site=="NR")
+otu_data_unt <- data.frame(ps.less.coral.NR@otu_table)
 otu_data<- data.frame(t(otu_data_unt))
-meta_data = data.frame(ps.clean.coral.NR@sam_data)
+meta_data = data.frame(ps.less.coral.NR@sam_data)
 meta_data = meta_data %>% rename(Sample.ID = id)
 # Step 1: Data preprocessing
 feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
@@ -415,7 +420,8 @@ fig #only one value above 0? weird
 
 ```
 
-```{r}
+
+```{r ancom NR season, eval=FALSE}
 ###season
 # Step 2: ANCOM
 main_var = "season"; p_adj_method = "BH"; alpha = 0.05
@@ -430,23 +436,22 @@ n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 
 cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
-dat_ann = data.frame(x = min(res.season.NR$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+dat_ann = data.frame(x = min(res.ss.NR$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
 fig = res.season.NR$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig 
+fig #a few above zero
+
 ```
 
-
-
 ### RI
-```{r ancom RI, eval=FALSE}
-#load("ps.less.trim.Rdata") #just has those 2 useless samples removed
-ps.trim.coral.RI <- subset_samples(ps.trim,site=="RI")
-otu_data_unt <- data.frame(ps.trim.coral.RI@otu_table)
+
+```{r ancom RI symb state, eval=FALSE}
+ps.less.coral.RI <- subset_samples(ps.less.coral,site=="RI")
+otu_data_unt <- data.frame(ps.less.coral.RI@otu_table)
 otu_data<- data.frame(t(otu_data_unt))
-meta_data = data.frame(ps.trim.coral.RI@sam_data)
+meta_data = data.frame(ps.less.coral.RI@sam_data)
 meta_data = meta_data %>% rename(Sample.ID = id)
 # Step 1: Data preprocessing
 feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
@@ -478,6 +483,9 @@ fig = res.ss.RI$fig +
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
 fig #all zero
 
+```
+
+```{r ancom RI season, eval=FALSE}
 ###season
 # Step 2: ANCOM
 main_var = "season"; p_adj_method = "BH"; alpha = 0.05
@@ -497,7 +505,45 @@ fig = res.season.RI$fig +
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig #a few above 0.7
+fig #some sig
+
+```
+
+```{r ancom CL symb state, eval=FALSE}
+ps.less.coral.CL <- subset_samples(ps.less.coral,site=="CL")
+otu_data_unt <- data.frame(ps.less.coral.CL@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.less.coral.CL@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+
+###symb state
+# Step 2: ANCOM
+main_var = "symbstate"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.ss.CL = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.ss.RI,file="ancom.res.ss.RI.RDS")
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.ss.RI$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.ss.RI$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #all zero
 ```
 
 ### CL
