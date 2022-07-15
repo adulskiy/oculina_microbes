@@ -170,13 +170,42 @@ gg.sedsw <- ggplot(df.div.ss, aes(x=season,y=Shannon,color=season))+
 gg.sedsw
 ```
 
+```{r}
+gg.shannon.summer <- ggplot(df.div.summer, aes(x=site,y=Shannon,color=type))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=type), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  scale_colour_manual(values=c("darksalmon","paleturquoise3","chocolate4")) +
+  ylab("Shannon Index")+
+  xlab("Site")+
+  #labs(color = "Symbiotic State")+
+  theme_cowplot() +
+  scale_x_discrete(limits=c('NR','RI', 'CL')) +
+  theme(legend.position="none")+
+  ylim(min_value=0, max_value=6.5)+
+  ggtitle("a) Summer")
+
+gg.shannon.fall <- ggplot(df.div.fall, aes(x=site,y=Shannon,color=type))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=type), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  scale_colour_manual(name="Type",values=c("darksalmon","paleturquoise3","chocolate4"), labels=c("Coral","Seawater","Sediment")) +
+  ylab("Shannon Index")+
+  xlab("Site")+
+  #labs(color = "Symbiotic State")+
+  theme_cowplot() +
+  scale_x_discrete(limits=c('NR','RI'))+
+  ylim(min_value=0, max_value=6.5)+
+  ggtitle("b) Fall")
+
+plot_grid(gg.shannon.summer, gg.shannon.fall, axis="bt",align="hv")
+```
+
 
 ```{r shannon symb state}
 gg.ss.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate))+
   geom_boxplot(outlier.shape=NA)+
   geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
   scale_colour_manual(values=c("lightcyan3","coral4")) +
-  ylab("Shannon index")+
+  ylab("Shannon Index")+
   xlab("Site")+
   labs(color = "Symbiotic State")+
   theme_cowplot() +
@@ -187,9 +216,9 @@ gg.ss.sha
 
 
 
-```{r shannon stats}
+```{r shannon stats coral}
 #Shannon
-shapiro.test(df.div$Shannon) #ns
+shapiro.test(df.div$Shannon) #ns - normal distribution
 shapiro.test(df.div.coral$Shannon) #ns
 leveneTest(df.div$Shannon~site/season,data=df.div) #ns (variances equal)
 leveneTest(df.div.coral$Shannon~site/season,data=df.div.coral) #ns (variances equal)
@@ -208,15 +237,18 @@ summary(a.div.symb)
   #Residuals      35 18.476  0.5279
 a.div.symb.seas <- aov(Shannon~symbstate*season,data=df.div.coral)
 summary(a.div.symb.seas)
-  #               Df Sum Sq Mean Sq F value Pr(>F)  
-   #symbstate       1  0.027  0.0274   0.052 0.8212  
-   #site            2  2.752  1.3762   2.607 0.0880 .
-   #symbstate:site  2  3.962  1.9810   3.753 0.0334 *
-   #Residuals      35 18.476  0.5279
+  #                 Df Sum Sq Mean Sq F value Pr(>F)  
+  #symbstate         1  0.027  0.0274   0.046 0.8317  
+  #season            1  2.449  2.4494   4.101 0.0501 .
+  #symbstate:season  1  0.642  0.6424   1.076 0.3064  
+  #Residuals        37 22.098  0.5973  
+# ANOVA tells you whether results significant overall; TukeyHSD tells you which groups significantly different
 TukeyHSD(a.div) # NR-CL sig (.)
 TukeyHSD(a.div.symb) # all ns
-TukeyHSD(a.div.symb.seas) #all ns
+TukeyHSD(a.div.symb.seas) #season sig (.)
 
+
+# I don't think I should be doing a wilcox test because that is for non-parametric data, and my data is normally distributed
 #stats by season (coral):
 wilcox.test(Shannon~season, data=df.div.coral) # < 0.05 *
 summary(aov(Shannon~season,data=df.div.coral)) # < 0.05 *
