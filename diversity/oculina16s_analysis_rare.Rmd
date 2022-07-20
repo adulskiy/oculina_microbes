@@ -222,6 +222,29 @@ shapiro.test(df.div$Shannon) #ns - normal distribution
 shapiro.test(df.div.coral$Shannon) #ns
 leveneTest(df.div$Shannon~site/season,data=df.div) #ns (variances equal)
 leveneTest(df.div.coral$Shannon~site/season,data=df.div.coral) #ns (variances equal)
+
+
+# Ok so t-test is for comparing two groups, (one-way) ANOVA for > 2 with one independent variable
+# Use two-way ANOVA for > 1 independent variable
+# So when comparing fall vs summer, or sym vs apo for all groups together, I need to use t-test
+# When comparing sites, use ANOVA
+# When comparing coral vs. sed vs. sw, use ANOVA
+# For two-way ANOVA, need to test for homogeneity of variance (Levene's) and independence of observations (Kruskal-Wallis) as well as normality (Shapiro); nice explainer here: https://www.scribbr.com/statistics/two-way-anova/
+
+# For two-way ANOVA:
+  # I have three independent variables (for coral):
+    # 1) Site
+    # 2) Season
+    # 3) Symb state
+  # Three options for two-way ANOVA:
+    # 1) Without interaction (just additive)
+    # 2) With interaction (x * y)
+    # 3) With blocking variable (I don't believe I have one, but maybe site?)
+  # Make models for all and then compare via aictab()
+
+# Two-way:
+
+
 a.div <- aov(Shannon~site*season,data=df.div.coral)
 summary(a.div) 
   #            Df Sum Sq Mean Sq F value Pr(>F)  
@@ -268,7 +291,7 @@ wilcox.test(Shannon~symbstate,data=df.div.coral.CL) #ns
 summary(aov(Shannon~symbstate,data=df.div.coral.CL)) #ns
 ```
 ```{r shannon no CL stats}
-shapiro.test(df.div.coral.NR.RI$Shannon) #ns
+shapiro.test(df.div.coral.NR.RI$Shannon) #ns - data normal
 leveneTest(df.div.coral.NR.RI$Shannon~site/season,data=df.div.coral.NR.RI) #ns (variances equal)
 a.div <- aov(Shannon~site/season,data=df.div.coral.NR.RI)
 summary(a.div) #site:season significant (<0.05)
