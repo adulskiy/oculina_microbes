@@ -83,6 +83,7 @@ ps.trim
 
 
 ```{r read in ps objects}
+setwd("~/oculina/data")
 #load("ps.clean.Rdata")
 load("ps.rare.Rdata")
 #load("ps.rare.trim.Rdata")
@@ -242,35 +243,84 @@ leveneTest(df.div.coral$Shannon~site/season,data=df.div.coral) #ns (variances eq
     # 3) With blocking variable (I don't believe I have one, but maybe site?)
   # Make models for all and then compare via aictab()
 
-# Two-way:
+aov.seas <-aov(Shannon~season, data=df.div.coral)
+aov.ss <- aov(Shannon~symbstate, data=df.div.coral)
+### Two-way (additive):
+aov.add.all <- aov(Shannon~site+season+symbstate, data=df.div.coral)
+summary(aov.add.all)
+#without site
+aov.add.seas.ss <-  aov(Shannon~season+symbstate, data=df.div.coral)
+summary(aov.add.seas.ss) #season sig (.)
+
+### Two-way (interactive):
+aov.int.all <- aov(Shannon~site*season*symbstate, data=df.div.coral)
+summary(aov.int.all) # site, season sig (.), site:season and site:symbstate sig (*)
+#without site
+aov.int.seas.ss <- aov(Shannon~season*symbstate, data=df.div.coral)
+summary(aov.int.seas.ss) #season sig (.)
+
+### Two-way (w/ site as blocking variable)
+aov.block <- aov(Shannon~season*symbstate+site, data=df.div.coral)
+summary(aov.block) #season sig (*)
+
+### Use AIC to compare models
+#install.packages("AICcmodavg")
+#library(AICcmodavg)
+
+model.set <- list(aov.seas,aov.ss,aov.add.all,aov.add.seas.ss,aov.int.all,aov.int.seas.ss,aov.block)
+model.names <- c("aov.seas", "aov.ss", "aov.add.all", "aov.add.seas.ss", "aov.int.all", "aov.int.seas.ss", "aov.block")
+aictab(model.set, modnames = model.names)
+#                 K   AICc Delta_AICc AICcWt Cum.Wt     LL
+#aov.seas         3  98.92       0.00   0.55   0.55 -46.14
+#aov.add.seas.ss  4 101.30       2.37   0.17   0.71 -46.09
+#aov.int.seas.ss  5 102.73       3.80   0.08   0.79 -45.51
+#aov.add.all      6 102.99       4.06   0.07   0.86 -44.26
+#aov.ss           3 103.03       4.11   0.07   0.93 -48.19
+#aov.block        7 104.51       5.58   0.03   0.97 -43.56
+#aov.int.all     11 104.58       5.66   0.03   1.00 -36.74
+
+### Conclusion: season is the best predictor of diversity, with additive model excluding site is second best (Shannon~season+symbstate)
+### However, this data includes CL, which might be skewing the results since it only has one season of data. Going to redo this analysis below excluding CL.
+
+```
+
+```{r anova without CL}
+aov.seas <-aov(Shannon~season, data=df.div.coral.NR.RI)
+summary(aov.seas) #ns
+aov.ss <- aov(Shannon~symbstate, data=df.div.coral.NR.RI)
+summary(aov.ss) #ns
+### Two-way (additive):
+aov.add.all <- aov(Shannon~site+season+symbstate, data=df.div.coral.NR.RI)
+summary(aov.add.all) #symbstate sig (.)
+#without site
+aov.add.seas.ss <-  aov(Shannon~season+symbstate, data=df.div.coral.NR.RI)
+summary(aov.add.seas.ss) #ns
+
+### Two-way (interactive):
+aov.int.all <- aov(Shannon~site*season*symbstate, data=df.div.coral.NR.RI)
+summary(aov.int.all) #season (*), site:season (*), site:symbstate(**)
+#without site
+aov.int.seas.ss <- aov(Shannon~season*symbstate, data=df.div.coral.NR.RI)
+summary(aov.int.seas.ss) #ns
+
+### Two-way (w/ site as blocking variable)
+aov.block <- aov(Shannon~season*symbstate+site, data=df.div.coral.NR.RI)
+summary(aov.block) #ns
+
+### Use AIC to compare models
+
+model.set <- list(aov.seas,aov.ss,aov.add.all,aov.add.seas.ss,aov.int.all,aov.int.seas.ss,aov.block)
+model.names <- c("aov.seas", "aov.ss", "aov.add.all", "aov.add.seas.ss", "aov.int.all", "aov.int.seas.ss", "aov.block")
+aictab(model.set, modnames = model.names)
+
+###Best model is aov.seas (confusing b/c the summary didn't show significance?), second best is interactive including site
+
+```
 
 
-a.div <- aov(Shannon~site*season,data=df.div.coral)
-summary(a.div) 
-  #            Df Sum Sq Mean Sq F value Pr(>F)  
-  #site         2  2.699  1.3496   2.593 0.0887 .
-  #season       1  1.634  1.6339   3.139 0.0849 .
-  #site:season  1  2.148  2.1485   4.128 0.0496 *
-a.div.symb <- aov(Shannon~symbstate*site,data=df.div.coral)
-summary(a.div.symb)
-  #               Df Sum Sq Mean Sq F value Pr(>F)  
-  #symbstate       1  0.027  0.0274   0.052 0.8212  
-  #site            2  2.752  1.3762   2.607 0.0880 .
-  #symbstate:site  2  3.962  1.9810   3.753 0.0334 *
-  #Residuals      35 18.476  0.5279
-a.div.symb.seas <- aov(Shannon~symbstate*season,data=df.div.coral)
-summary(a.div.symb.seas)
-  #                 Df Sum Sq Mean Sq F value Pr(>F)  
-  #symbstate         1  0.027  0.0274   0.046 0.8317  
-  #season            1  2.449  2.4494   4.101 0.0501 .
-  #symbstate:season  1  0.642  0.6424   1.076 0.3064  
-  #Residuals        37 22.098  0.5973  
-# ANOVA tells you whether results significant overall; TukeyHSD tells you which groups significantly different
-TukeyHSD(a.div) # NR-CL sig (.)
-TukeyHSD(a.div.symb) # all ns
-TukeyHSD(a.div.symb.seas) #season sig (.)
 
 
+```{r wilcox tests, eval=FALSE}
 # I don't think I should be doing a wilcox test because that is for non-parametric data, and my data is normally distributed
 #stats by season (coral):
 wilcox.test(Shannon~season, data=df.div.coral) # < 0.05 *
@@ -279,7 +329,6 @@ wilcox.test(Shannon~season,data=df.div.coral.NR) #ns
 summary(aov(Shannon~season,data=df.div.coral.NR)) #ns
 wilcox.test(Shannon~season,data=df.div.coral.RI) # < 0.01 **
 summary(aov(Shannon~season,data=df.div.coral.RI)) # < 0.01 **
-
 #stats symb state
 wilcox.test(Shannon~symbstate,data=df.div.coral) #ns
 summary(aov(Shannon~symbstate,data=df.div.coral)) #ns
@@ -290,6 +339,7 @@ summary(aov(Shannon~symbstate,data=df.div.coral.RI)) # < 0.1 .
 wilcox.test(Shannon~symbstate,data=df.div.coral.CL) #ns
 summary(aov(Shannon~symbstate,data=df.div.coral.CL)) #ns
 ```
+
 ```{r shannon no CL stats}
 shapiro.test(df.div.coral.NR.RI$Shannon) #ns - data normal
 leveneTest(df.div.coral.NR.RI$Shannon~site/season,data=df.div.coral.NR.RI) #ns (variances equal)

@@ -299,7 +299,7 @@ source("ancom.R")
 ```{r ancom all, eval=FALSE}
 # shouldn't use rarefied data according to authors
 # remove rows from ps.cleanest for unrarerified data
-load("~/oculina/data/ps.cleanest.Rdata")
+#load("~/oculina/data/ps.cleanest.Rdata")
 #seqtab.cleanest <- read.csv("~/oculina/data/oculina16s_seqtab.cleanest.csv",row.names=1)
 #row.names.remove <- c("D6","F3","H2","F7","H4","H7")
 #samdf.cleanest <- data.frame(ps.cleanest@sam_data)
@@ -313,7 +313,7 @@ load("~/oculina/data/ps.cleanest.Rdata")
 #ps.less.coral <- subset_samples(ps.cleanest.less,type=="coral")
 
 #load("~/oculina/data/ps.trim.RData")
-#load("~/oculina/community_comp/ps.cleanest.less.Rdata")
+load("~/oculina/community_comp/ps.cleanest.less.Rdata")
 ps.less.coral <- subset_samples(ps.cleanest.less,type=="coral")
 #ps.trim.coral <- subset_samples(ps.trim,type=="coral")
 otu_data_unt <- data.frame(ps.less.coral@otu_table)
@@ -589,11 +589,10 @@ fig #all zero
 Re-read in data
 
 ```{r load ancom results}
-res.ss.NR <- readRDS("ancom.res.ss.NR.RDS")
-res.ss.RI <- readRDS("ancom.res.ss.RI.RDS")
-res.ss.CL <- readRDS("ancom.res.ss.CL.RDS")
-res.season.NR <- readRDS("ancom.res.season.NR.RDS")
-res.season.RI <- readRDS("ancom.res.season.RI.RDS")
+res.ss.NR <- readRDS("./ancom/ancom.res.ss.NR.RDS")
+res.ss.RI <- readRDS("./ancom/ancom.res.ss.RI.RDS")
+res.season.NR <- readRDS("./ancom/ancom.res.season.NR.RDS")
+res.season.RI <- readRDS("./ancom/ancom.res.season.RI.RDS")
 ```
 
 Which ones are 'significant'
@@ -606,8 +605,8 @@ NR.ss.out.sig <- NR.ss.out[NR.ss.out$detected_0.6==TRUE,] #0
 RI.ss.out <- res.ss.RI$out
 RI.ss.out.sig <- RI.ss.out[RI.ss.out$detected_0.6==TRUE,] #0
 
-CL.ss.out <- res.ss.CL$out
-CL.ss.out.sig <- CL.ss.out[CL.ss.out$detected_0.6==TRUE,] #0
+#CL.ss.out <- res.ss.CL$out
+#CL.ss.out.sig <- CL.ss.out[CL.ss.out$detected_0.6==TRUE,] #0
 
 #season
 NR.season.out <- res.season.NR$out
