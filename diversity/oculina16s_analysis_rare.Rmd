@@ -279,7 +279,7 @@ aictab(model.set, modnames = model.names)
 #aov.block        7 104.51       5.58   0.03   0.97 -43.56
 #aov.int.all     11 104.58       5.66   0.03   1.00 -36.74
 
-### Conclusion: season is the best predictor of diversity, with additive model excluding site is second best (Shannon~season+symbstate)
+### Conclusion: season is the best predictor of diversity, with additive model excluding site second best (Shannon~season+symbstate)
 ### However, this data includes CL, which might be skewing the results since it only has one season of data. Going to redo this analysis below excluding CL.
 
 ```
