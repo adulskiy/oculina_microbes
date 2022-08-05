@@ -215,6 +215,10 @@ gg.ss.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate))+
 gg.ss.sha
 ```
 
+```{r shannon revised stats (glm)}
+glm(df.div.coral$Shannon~site+season)
+
+```
 
 
 ```{r shannon stats coral}

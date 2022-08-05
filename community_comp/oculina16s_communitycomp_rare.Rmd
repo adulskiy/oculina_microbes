@@ -283,7 +283,7 @@ Tutorial [here](https://github.com/FrederickHuangLin/ANCOM)
 
 ## Setup
 
-```{r ancom packages}
+```{r ancom packages, eval=FALSE}
 library(readr)
 library(tidyverse)
 #library(dplyr)
