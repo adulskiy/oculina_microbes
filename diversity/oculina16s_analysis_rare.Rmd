@@ -27,65 +27,64 @@ library(vegan)
 library(dada2)
 ```
 
-setwd("~/oculina/data/")
+
 
 ## Read in data
 
 ```{r read in data}
-samdf <- read.csv("~/oculina/data/oculina16s_sampledata_plusneg_types.csv",header=TRUE) #R is making me put the full path all of a sudden, not sure why
+#setwd("~/oculina/data/")
+samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE) #R is making me put the full path all of a sudden, not sure why
 row.names(samdf) <- samdf$id
-load("~/oculina/data/taxa2.Rdata")
+load("~/oculina/data/taxa2_rev.Rdata")
 ```
-
 
 ## Phyloseq objects
 
 ```{r making phyloseq objects, eval=FALSE}
-#setwd("~/oculina/diversity")
-seqtab.rare <- read.csv("oculina16s_seqtab.cleanest.rare_2k copy",row.names=1)
+seqtab.rare <- read.csv("oculina16s_rev_seqtab.rare.2k",row.names=1)
 ps.rare <- phyloseq(otu_table(seqtab.rare, taxa_are_rows=FALSE), 
                     sample_data(samdf), 
                     tax_table(taxa2))
-ps.rare 
-#save(ps.rare,file="ps.rare.Rdata")
-#4814 taxa during revisions - raw & rarefied
+ps.rare  
+#save(ps.rare,file="ps.rare.rev.Rdata")
+#5237 taxa - raw & rarefied
 
 #raw, unrarefied version:
-seqtab.clean <- read.csv("oculina16s_seqtab.cleanest.csv",row.names=1)
+seqtab.clean <- read.csv("oculina16s_rev_seqtab.cleanest.csv",row.names=1)
 ps.clean <- phyloseq(otu_table(seqtab.clean, taxa_are_rows=FALSE), 
                     sample_data(samdf), 
                     tax_table(taxa2))
 ps.clean
-#save(ps.clean,file="ps.clean.Rdata")
+#save(ps.clean,file="ps.clean.rev.Rdata")
 #6573 taxa just raw, not rarefied
 
 ```
 
 ##TRIMMED VERSIONS:
 ```{r}
-seqtab.rare.trim <- read.csv("oculina16s_seqtab.trim.rare_2k.csv",row.names=1)
+seqtab.rare.trim <- read.csv("oculina16s_rev_seqtab.trim.rare.2k.csv",row.names=1)
 ps.rare.trim <- phyloseq(otu_table(seqtab.rare.trim, taxa_are_rows=FALSE), 
                     sample_data(samdf), 
                     tax_table(taxa2))
 ps.rare.trim
-#save(ps.rare.trim,file="ps.rare.trim.Rdata")
-#796 taxa &  61 samples rarefied
+#save(ps.rare.trim,file="ps.rare.trim.rev.Rdata")
+#823 taxa &  64 samples rarefied
 
 #checking what happens if we read in the unrarefied version:
-seqtab.trim <- read.csv("oculina16s_seqtab.cleanest.trim.csv",row.names=1)
+seqtab.trim <- read.csv("oculina16s_rev_seqtab.trim.csv",row.names=1)
 ps.trim <- phyloseq(otu_table(seqtab.trim, taxa_are_rows=FALSE), 
                     sample_data(samdf), 
                     tax_table(taxa2))
 ps.trim
-#save(ps.trim,file="ps.trim.Rdata")
-#796 taxa & 70 samples not rarefied
+#save(ps.trim,file="ps.trim.rev.Rdata")
+#823 taxa & 67 samples not rarefied
 ```
 
 
 ```{r read in ps objects}
 setwd("~/oculina/data")
 #load("ps.clean.Rdata")
-load("ps.rare.Rdata")
+load("ps.rare.rev.Rdata")
 #load("ps.rare.trim.Rdata")
 #load("ps.trim.Rdata")
 ```
@@ -115,6 +114,57 @@ df.div.coral.NR <- subset(df.div.coral,site=="NR")
 df.div.coral.RI <- subset(df.div.coral,site=="RI")
 df.div.coral.CL <- subset(df.div.coral,site=="CL")
 df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
+```
+
+
+### Specificity analysis for symbiont density
+```{r}
+#library("remotes")
+#install_github("darcyj/specificity")
+library(specificity)
+#need to subset just coral samples from ps.rare
+ps.coral <- subset_samples(ps.rare, type=="coral")
+#removing sample E2 for now b/c it has NA for density
+ps.coral <- subset_samples(ps.coral, id != "E2")
+otutable <- as(otu_table(ps.coral), "matrix")
+if(taxa_are_rows(ps.coral)){otutable <- t(otutable)}
+otutable.df = as.data.frame(otutable)
+prop_abund(otutable.df)
+
+#apply occupancy threshold to remove low-occupancy species
+otutable.over10 <- occ_threshold(otutable.df, threshold=10)
+#how many species left?
+ncol(otutable)
+ncol(otutable.over10) #50 - a LOT were removed! (started with 5237); common for microbiome data, apparently
+
+#double check that we didn't modify the rows (samples) of otutable
+all(rownames(otutable.over10) == rownames(metadata))
+#TRUE
+
+# set number of CPU cores to use - change for your system (4 cores for typical hardware)
+spec_ncores <- 4
+
+#make empty list for specificity values
+specs_list <- list()
+
+###specificity for symb density:
+metadata <- sample_data(ps.coral) %>%
+  data.frame() %>%
+  select("fullname", "density") %>%
+  na.omit()
+metadata$density <- as.numeric(metadata$density)
+specs_list$"SymbDensity" <- phy_or_env_spec(otutable.over10, env=metadata$density,n_sim=1000,n_cores=spec_ncores)
+
+```
+
+
+```{r plotting specificity results}
+plot_specs_violin(specs_list, label_cex=0.6, cols="red") #all nonsig! lol
+
+#specs_df <- aggregate_specs_list(specs_list, byFeature=FALSE, fd=seqtab.rare, fd_id=1)
+#ggplot(specs_list, aes(x=Variable, y=Spec, fill=Variable)) +
+#  geom_violin()+
+#  geom_jitter(width=0.2,size=0.2)
 ```
 
 
