@@ -95,7 +95,7 @@ load("ps.rare.rev.Rdata")
 Visualize alpha-diversity - Should be done on raw, untrimmed dataset
 
 ```{r generate div metrics}
-df <- data.frame(estimate_richness(ps.rare, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
+df <- data.frame(estimate_richness(ps.rare, split=TRUE, measures=c("Shannon","InvSimpson","Observed","Chao1")))
 #df <- data.frame(estimate_richness(ps.clean, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
 #df <- data.frame(estimate_richness(ps.trim, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
 #df <- data.frame(estimate_richness(ps.rare.trim, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
@@ -265,10 +265,256 @@ gg.ss.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate))+
 gg.ss.sha
 ```
 
+
+
+### GLMS - Alpha Diversity Indices ###
 ```{r shannon revised stats (glm)}
-glm(df.div.coral$Shannon~site+season)
+df.div.coral$season <- as.factor(df.div.coral$season)
+df.div.coral$site <- as.factor(df.div.coral$site)
+df.div.coral$density <- as.numeric(df.div.coral$density)
+str(df.div.coral)
+
+ggplot(df.div.coral, aes(x=Shannon))+
+  geom_histogram(binwidth=.2, fill="#69b3a2", color="#e9ecef", alpha=0.9)
+shapiro.test(df.div.coral$Shannon)
+#log trasform
+df.div.coral.log <- df.div.coral
+df.div.coral.log$Shannon <- log(df.div.coral.log$Shannon)
+ggplot(df.div.coral.log, aes(x=Shannon))+
+  geom_histogram(binwidth=.05, fill="#69b3a2", color="#e9ecef", alpha=0.9)
+shapiro.test(df.div.coral.log$Shannon)
+
+# I think log transformed data is better here? Should ask a stats person to double check
+
+library(stats)
+#install.packages("MuMIn")
+library(MuMIn)
+#library(lmer)
+
+### GLM - Shannon ###
+#using Gamma distribution b/c Shannon data is positive and continuous, but not sure if this is best
+#or if inverse Gaussian is better or even something else
+glm.1 <- glm(Shannon ~ season+site+density, data=df.div.coral.log, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(Shannon ~ season+site+density+site*density, data=df.div.coral.log, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(Shannon ~ season+site+density+season*site, data=df.div.coral.log, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(Shannon ~ season+site+density+season*density, data=df.div.coral.log, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(Shannon ~ season+site+density+season*site*density, data=df.div.coral.log, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.2 best AIC
+summary(glm.2)
+#                Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)     0.668901   0.085803   7.796  3.7e-09 ***
+#seasonSummer    0.069851   0.044588   1.567 0.126208    
+#siteNR          0.149260   0.091965   1.623 0.113562    
+#siteRI          0.078833   0.087044   0.906 0.371306    
+#density         0.004720   0.001510   3.125 0.003564 ** 
+#siteNR:density -0.007115   0.001802  -3.949 0.000362 ***
+#siteRI:density -0.004040   0.001614  -2.502 0.017157 * 
+
+
+#df.div.coral.p <- df.div.coral %>% mutate(glm.2 = predict(glm.2))
+#ggplot(df.div.coral.p, aes(x=season, y=Shannon))+
+#  geom_boxplot()+
+#  geom_point(position=position_jitter(height=0,width=0.2))
+
+#ggplot(df.div.coral.p, aes(x=site, y=Shannon))+
+#  geom_boxplot()+
+#  geom_point(position=position_jitter(height=0,width=0.2))
+
+#ggplot(df.div.coral.p, aes(x=density, y=Shannon,color=site))+
+#  geom_point(position=position_jitter(height=0,width=0.2))
+
 
 ```
+
+```{r}
+## GLM - Evenness ###
+
+ggplot(df.div.coral, aes(x=even))+
+  geom_histogram(binwidth=.02, fill="#69b3a2", color="#e9ecef", alpha=0.9)
+shapiro.test(df.div.coral$even)
+#log trasform
+df.div.coral.log$even <- log(df.div.coral.log$even)
+ggplot(df.div.coral.log, aes(x=even))+
+  geom_histogram(binwidth=.02, fill="#69b3a2", color="#e9ecef", alpha=0.9)
+shapiro.test(df.div.coral.log$even)
+# doesn't look better and shapiro test is worse, so use non-log transformed data
+
+#models:
+glm.1 <- glm(even ~ season+site+density, data=df.div.coral, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(even ~ season+site+density+site*density, data=df.div.coral, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(even ~ season+site+density+season*site, data=df.div.coral, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(even ~ season+site+density+season*density, data=df.div.coral, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(even ~ season+site+density+season*site*density, data=df.div.coral, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.5 best AIC
+summary(glm.5)
+#Coefficients: (2 not defined because of singularities)
+#^^^why does this happen?! i think bc of CL...can I change CL to not be intercept?
+
+```
+
+
+```{r}
+## GLM - Evenness ###
+
+ggplot(df.div.coral, aes(x=even))+
+  geom_histogram(binwidth=.02, fill="#69b3a2", color="#e9ecef", alpha=0.9)
+shapiro.test(df.div.coral$even)
+#log trasform
+df.div.coral.log$even <- log(df.div.coral.log$even)
+ggplot(df.div.coral.log, aes(x=even))+
+  geom_histogram(binwidth=.02, fill="#69b3a2", color="#e9ecef", alpha=0.9)
+shapiro.test(df.div.coral.log$even)
+# doesn't look better and shapiro test is worse, so use non-log transformed data
+
+#models:
+glm.1 <- glm(even ~ season+site+density, data=df.div.coral, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(even ~ season+site+density+site*density, data=df.div.coral, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(even ~ season+site+density+season*site, data=df.div.coral, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(even ~ season+site+density+season*density, data=df.div.coral, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(even ~ season+site+density+season*site*density, data=df.div.coral, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.5 best AIC
+summary(glm.5)
+#Coefficients: (2 not defined because of singularities)
+#^^^why does this happen?! i think bc of CL...can I change CL to not be intercept?
+
+```
+
+```{r GLM Chao1}
+## GLM - Chao1 ###
+#Chao1 is estimator based on abundance (estimates # of species in a community)
+
+ggplot(df.div.coral, aes(x=Chao1))+
+  geom_histogram(binwidth=20, fill="#69b3a2", color="#e9ecef", alpha=0.9)
+shapiro.test(df.div.coral$Chao1) #very non-normal
+#log transform
+#df.div.coral.log <- df.div.coral
+df.div.coral.log$Chao1 <- log(df.div.coral.log$Chao1)
+ggplot(df.div.coral.log, aes(x=Chao1))+
+  geom_histogram(binwidth=.1, fill="#69b3a2", color="#e9ecef", alpha=0.9) #looks better
+shapiro.test(df.div.coral.log$Chao1)
+# log-transformed is better
+
+#models:
+glm.1 <- glm(Chao1 ~ season+site+density, data=df.div.coral.log, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(Chao1 ~ season+site+density+site*density, data=df.div.coral.log, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(Chao1 ~ season+site+density+season*site, data=df.div.coral.log, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(Chao1 ~ season+site+density+season*density, data=df.div.coral.log, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(Chao1 ~ season+site+density+season*site*density, data=df.div.coral.log, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.2 best AIC
+summary(glm.2)
+#                 Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)     0.1971460  0.0171038  11.526 1.82e-13 ***
+#seasonSummer   -0.0031920  0.0095206  -0.335 0.739417    
+#siteNR          0.0372755  0.0181311   2.056 0.047312 *  
+#siteRI          0.0208391  0.0172355   1.209 0.234736    
+#density         0.0008325  0.0002785   2.990 0.005084 ** 
+#siteNR:density -0.0014071  0.0003447  -4.082 0.000246 ***
+#siteRI:density -0.0005451  0.0003045  -1.790 0.082127 .
+
+```
+
+```{r GLM InvSimpson}
+## GLM - InvSimpson ###
+#Chao1 is estimator based on abundance (estimates # of species in a community)
+
+ggplot(df.div.coral, aes(x=InvSimpson))+
+  geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9)
+shapiro.test(df.div.coral$InvSimpson) #very non-normal
+#log transform
+#df.div.coral.log <- df.div.coral
+df.div.coral.log$InvSimpson <- log(df.div.coral.log$InvSimpson)
+ggplot(df.div.coral.log, aes(x=InvSimpson))+
+  geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9) 
+shapiro.test(df.div.coral.log$InvSimpson)
+# log-transformed seems better
+
+#models:
+glm.1 <- glm(InvSimpson ~ season+site+density, data=df.div.coral.log, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(InvSimpson ~ season+site+density+site*density, data=df.div.coral.log, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(InvSimpson ~ season+site+density+season*site, data=df.div.coral.log, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(InvSimpson ~ season+site+density+season*density, data=df.div.coral.log, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(InvSimpson ~ season+site+density+season*site*density, data=df.div.coral.log, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.2 best AIC
+summary(glm.2)
+#                Estimate Std. Error t value Pr(>|t|)   
+#(Intercept)     0.561777   0.261849   2.145  0.03894 * 
+#seasonSummer    0.199690   0.129506   1.542  0.13208   
+#siteNR          0.431138   0.286998   1.502  0.14201   
+#siteRI          0.289421   0.267720   1.081  0.28707   
+#density         0.019753   0.006431   3.072  0.00410 **
+#siteNR:density -0.024227   0.007065  -3.429  0.00157 **
+#siteRI:density -0.019107   0.006653  -2.872  0.00689 **
+```
+
+```{r GLM excluding CL - sanity check?}
+df.div.coral.NR.RI$season <- as.factor(df.div.coral.NR.RI$season)
+df.div.coral.NR.RI$site <- as.factor(df.div.coral.NR.RI$site)
+df.div.coral.NR.RI$density <- as.numeric(df.div.coral.NR.RI$density)
+str(df.div.coral.NR.RI)
+
+
+glm.1 <- glm(Shannon ~ season+site+density, data=df.div.coral.NR.RI, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(Shannon ~ season+site+density+site*density, data=df.div.coral.NR.RI, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(Shannon ~ season+site+density+season*site, data=df.div.coral.NR.RI, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(Shannon ~ season+site+density+season*density, data=df.div.coral.NR.RI, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(Shannon ~ season+site+density+season*site*density, data=df.div.coral.NR.RI, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.2 best model (still! woo!)
+
+summary(glm.2)
+
+```
+
+
+```{r MOS test to test for curvilinear relationship}
+mod <- MOStest(df.div.coral$density,df.div.coral$Shannon)
+isHump(mod)
+
+#idk how to interpret this sooo
+```
+
+
 
 
 ```{r shannon stats coral}
