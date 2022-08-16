@@ -87,15 +87,21 @@ for (i in 1:nrow(tax.clean)){
 
 tax_table(ps.rare) <- as.matrix(tax.clean)
 
-# subset coral
-ps.coral <- subset_samples(ps.rare,type=="coral")
-
 
 ```
 
 
 
 ### Stats
+
+# Transform data using centered log ratio (makes data symmetric and linearly related)
+```{r transform data using CLR}
+#library(microbiome)
+ps.rare.clr <- transform(ps.rare, 'clr')
+#subset coral
+ps.coral <- subset_samples(ps.rare.clr,type=="coral")
+
+```
 
 
 
