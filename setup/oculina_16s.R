@@ -1,6 +1,6 @@
 # 16S Analysis of Ana's Oculina Data
 # Author: Ana Dulskiy
-# Date: 6 May 2022
+# Date: 9 Aug 2022
 ### Based on DADA2 Pipeline 1.16 Walkthrough 
 ### & Nicola Kriefall's Moorea holobiont analysis
 
@@ -8,10 +8,12 @@
 ##### PRE-PROCESSING #######
 #~########################~#
 
+# Redoing analysis with all data together (both original run + july 22)
+# Skipping cutadapt steps as I've already done it with all the data (skip to dada2)
 #fastq files should have R1 & R2 designations for PE reads
 #Also - some pre-trimming. Retain only PE reads that match amplicon primer. 
 # Remove reads containing Illumina sequencing adapters
-
+# I ran cutadapt part (pre-dada2) all on longleaf
 
 #in Terminal home directory:
 #following instructions of installing BBtools from https://jgi.doe.gov/data-and-tools/bbtools/bb-tools-user-guide/installation-guide/
@@ -21,7 +23,7 @@
 #tar -xvzf BBMap_(version).tar.gz
 #3. test package:
 #cd bbmap
-#~/bin/bbmap/stats.sh in=~/bin/bbmap/resources/phix174_ill.ref.fa.gz
+#~/happy_bin/bbmap/stats.sh in=~/bin/bbmap/resources/phix174_ill.ref.fa.gz
 
 
 # my adaptors for 16S, which I saved as "adaptors.fasta"
@@ -41,32 +43,29 @@
 # >reverse
 # GGACTACHVGGGTWTCTAAT
 
-
-## Unzip all fastq.gz files
-  # $ gunzip -k *.gz
+### primer check below showed some rev complement primers still in one of my samples, so redoing part of the preprocessing
 
 ## Still in terminal - making a sample list based on the first phrase before 
 ## the underscore in the .fastq name
-  #ls *R1_001.fastq | cut -d '_' -f 1 > samples.list
-
-## Cut off the extra words in the .fastq files
-  # $ for file in $(cat samples.list); do  mv ${file}_*R1*.fastq ${file}_R1.fastq; mv ${file}_*R2*.fastq ${file}_R2.fastq; done 
+#ls *R1.fastq | cut -d '_' -f 1 > samples.list
 
 ## Get rid of reads that still have the adaptor sequence, shouldn't be there, I didn't have any
-  # $ for file in $(cat samples.list); do ~/happy_bin/bbmap/bbduk.sh in1=${file}_R1.fastq in2=${file}_R2.fastq ref=adaptors.fasta out1=${file}_R1_NoIll.fastq out2=${file}_R2_NoIll.fastq; done &>bbduk_NoIll.log
+# $ for file in $(cat samples.list); do ~/happy_bin/bbmap/bbduk.sh in1=${file}_16S_R1.fastq in2=${file}_16S_R2.fastq ref=adaptors.fasta out1=${file}_R1_NoIll.fastq out2=${file}_R2_NoIll.fastq; done &>bbduk_NoIll.log
 
 ## Get rid of first 4 bases (degenerate primers created them)
-  # $ for file in $(cat samples.list); do ~/happy_bin/bbmap/bbduk.sh in1=${file}_R1_NoIll.fastq in2=${file}_R2_NoIll.fastq ftl=4 out1=${file}_R1_NoIll_No4N.fastq out2=${file}_R2_NoIll_No4N.fastq; done &>bbduk_No4N.log
+# $ for file in $(cat samples.list); do ~/happy_bin/bbmap/bbduk.sh in1=${file}_R1_NoIll.fastq in2=${file}_R2_NoIll.fastq ftl=4 out1=${file}_R1_NoIll_No4N.fastq out2=${file}_R2_NoIll_No4N.fastq; done &>bbduk_No4N.log
 
 ## Only keep reads that start with the 16S primer
-  # $ for file in $(cat samples.list); do ~/happy_bin/bbmap/bbduk.sh in1=${file}_R1_NoIll_No4N.fastq in2=${file}_R2_NoIll_No4N.fastq restrictleft=20 k=10 literal=GTGYCAGCMGCCGCGGTAA,GGACTACNVGGGTWTCTAAT copyundefined=t outm1=${file}_R1_NoIll_No4N_16S.fastq outu1=${file}_R1_check.fastq outm2=${file}_R2_NoIll_No4N_16S.fastq outu2=${file}_R2_check.fastq; done &>bbduk_16S.log
+# $ for file in $(cat samples.list); do ~/happy_bin/bbmap/bbduk.sh in1=${file}_R1_NoIll_No4N.fastq in2=${file}_R2_NoIll_No4N.fastq restrictleft=20 k=10 literal=GTGYCAGCMGCCGCGGTAA,GGACTACNVGGGTWTCTAAT copyundefined=t outm1=${file}_R1_NoIll_No4N_16S.fastq outu1=${file}_R1_check.fastq outm2=${file}_R2_NoIll_No4N_16S.fastq outu2=${file}_R2_check.fastq; done &>bbduk_16S.log
 ## higher k = more reads removed, but can't surpass k=20 or 21
 
 ## Install cutadapt if not installed (need to have python installed in order to run this command):
-  # $ python3 -m pip install --user --upgrade cutadapt
+# $ python3 -m pip install --user --upgrade cutadapt
 
 ## Use cutadapt to remove primer
 # $ for file in $(cat samples.list); do cutadapt -g GTGYCAGCMGCCGCGGTAA -a ATTAGAWACCCBNGTAGTCC -G GGACTACHVGGGTWTCTAAT -A TTACCGCGGCKGCTGRCAC -n 2 --discard-untrimmed -o ${file}_R1.fastq -p ${file}_R2.fastq ${file}_R1_NoIll_No4N_16S.fastq ${file}_R2_NoIll_No4N_16S.fastq; done &>clip.log
+# $ for file in $(cat samples.list); do cutadapt -g GTGYCAGCMGCCGCGGTAA -a ATTAGAWACCCBNGTAGTCC -G GGACTACHVGGGTWTCTAAT -A TTACCGCGGCKGCTGRCAC -n 2 --discard-untrimmed -o ${file}_R1.fastq -p ${file}_R2.fastq ${file}_16S_R1.fastq ${file}_16S_R2.fastq; done &>clip.log
+
 ##-g regular 5' forward primer 
 ##-G regular 5' reverse primer
 ##-o forward out
@@ -92,9 +91,10 @@ library(Biostrings); packageVersion("Biostrings")
 #2.62.0
 
 
-path <- "~/oculina/16S_preprocessed" # CHANGE ME to the directory containing the fastq files after unzipping.
+path <- "~/oculina_old/16S_preprocessed" # CHANGE ME to the directory containing the fastq files after unzipping.
 
 fnFs <- sort(list.files(path, pattern = "_R1.fastq", full.names = TRUE))
+
 fnRs <- sort(list.files(path, pattern = "_R2.fastq", full.names = TRUE))
 
 get.sample.name <- function(fname) strsplit(basename(fname), "_")[[1]][1]
@@ -119,7 +119,7 @@ REV.orients
 
 fnFs.filtN <- file.path(path, "filtN", basename(fnFs)) # Put N-filterd files in filtN/ subdirectory
 fnRs.filtN <- file.path(path, "filtN", basename(fnRs))
-filterAndTrim(fnFs, fnFs.filtN, fnRs, fnRs.filtN, maxN = 0, multithread = TRUE)
+filterAndTrim(fnFs, fnFs.filtN, fnRs, fnRs.filtN, maxN = 0, multithread = TRUE, compress=TRUE)
 
 primerHits <- function(primer, fn) {
   # Counts number of reads in which the primer is found
@@ -127,23 +127,73 @@ primerHits <- function(primer, fn) {
   return(sum(nhits > 0))
 }
 
-rbind(FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = fnFs.filtN[[73]]), 
-      FWD.ReverseReads = sapply(FWD.orients, primerHits, fn = fnRs.filtN[[73]]), 
-      REV.ForwardReads = sapply(REV.orients, primerHits, fn = fnFs.filtN[[73]]), 
-      REV.ReverseReads = sapply(REV.orients, primerHits, fn = fnRs.filtN[[73]]))
+rbind(FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = fnFs.filtN[[4]]), 
+      FWD.ReverseReads = sapply(FWD.orients, primerHits, fn = fnRs.filtN[[4]]), 
+      REV.ForwardReads = sapply(REV.orients, primerHits, fn = fnFs.filtN[[4]]), 
+      REV.ReverseReads = sapply(REV.orients, primerHits, fn = fnRs.filtN[[4]]))
 
-#no primers - amazing
+#no primers -- skip cutadapt part 2
+
+### cutadapt part 2 ###
+## Install cutadapt to local computer and set path here (python3 -m pip install --user --upgrade cutadapt)
+#to find where cutadapt is installed do $which cutadapt and then set path to that:
+#$export PATH=/nas/longleaf/home/adulskiy/.local/bin/cutadapt/$PATH
+cutadapt <- "/nas/longleaf/home/adulskiy/.local/bin/cutadapt" # CHANGE ME to the cutadapt path on your machine
+system2(cutadapt, args = "--version") # Run shell commands from R
+
+## look for cutadapt path and create one if it doesn't exist
+path_cut <- file.path(path, "cutadapt")
+if(!dir.exists(path_cut)) dir.create(path_cut)
+
+## create list of forward/reverse samples to put the cutadapt samples
+fnFs_cut <- file.path(path_cut, basename(fnFs)) # 16S path with the subdirectory 'cutadapt' then the sample names
+fnRs_cut <- file.path(path_cut, basename(fnRs))
+
+# forward/reverse complements of primers
+FWD_RC <- dada2:::rc(FWD)
+REV_RC <- dada2:::rc(REV)
+
+R1_flags <- paste("-g", FWD, "-a", REV_RC) # Trim FWD and the reverse-complement of REV off of R1 (forward reads)
+R2_flags <- paste("-G", REV, "-A", FWD_RC) # Trim REV and the reverse-complement of FWD off of R2 (reverse reads)
+
+# Run Cutadapt
+for(i in seq_along(fnFs)) {
+  system2(cutadapt, args = c(R1_flags, R2_flags, "-n", 2, # -n 2 required to remove FWD and REV from reads
+                             "-o", fnFs_cut[i], "-p", fnRs_cut[i], # output files
+                             fnFs.filtN[i], fnRs.filtN[i])) # input files
+}
+#Overview of removed sequences
+#length	count	expect	max.err	error counts
+#3	1	5.4	0	1
+#59	1	0.0	1	0 1
+#216	2	0.0	1	2
+#219	1	0.0	1	0 1
+#221	1	0.0	1	1
+#227	3	0.0	1	0 3
+
+#towards the beginning
+rbind(FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = fnFs_cut[[1]]), 
+      FWD.ReverseReads = sapply(FWD.orients, primerHits, fn = fnRs_cut[[1]]), 
+      REV.ForwardReads = sapply(REV.orients, primerHits, fn = fnFs_cut[[1]]), 
+      REV.ReverseReads = sapply(REV.orients, primerHits, fn = fnRs_cut[[1]]))
+
+#at the end
+rbind(FWD.ForwardReads = sapply(FWD.orients, primerHits, fn = fnFs_cut[[4]]), 
+      FWD.ReverseReads = sapply(FWD.orients, primerHits, fn = fnRs_cut[[4]]), 
+      REV.ForwardReads = sapply(REV.orients, primerHits, fn = fnFs_cut[[4]]), 
+      REV.ReverseReads = sapply(REV.orients, primerHits, fn = fnRs_cut[[4]]))
+
+
+
 
 #### Visualizing raw data ####
 
+
 #First, lets look at quality profile of R1 reads
 plotQualityProfile(fnFs.filtN[c(1,2,3,4)])
-plotQualityProfile(fnFs.filtN[c(70,71,72,73)])
-
 
 #Then look at quality profile of R2 reads
 plotQualityProfile(fnRs.filtN[c(1,2,3,4)])
-plotQualityProfile(fnRs.filtN[c(70,71,72,73)])
 
 # Make directory and filenames for the filtered fastqs
 filt_path <- file.path(path, "trimmed")
@@ -263,10 +313,10 @@ seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% seq(240,260)] #again, being fair
 
 seqtab.nochim <- removeBimeraDenovo(seqtab2, method="consensus", multithread=TRUE, verbose=TRUE)
 dim(seqtab.nochim)
-#Identified 784 bimeras out of 8080 input sequences.
+#Identified 798 bimeras out of 8697 input sequences. 
 
 sum(seqtab.nochim)/sum(seqtab2)
-#0.9743755
+#0.9749089
 #The fraction of chimeras varies based on factors including experimental procedures and sample complexity, 
 #but can be substantial. 
 
@@ -282,7 +332,8 @@ rownames(track) <- sample.names
 head(track)
 tail(track)
 
-write.csv(track,file="oculina_readstats.csv",row.names=TRUE,quote=FALSE)
+#setwd("~/oculina_old/data")
+write.csv(track,file="oculina_rev_readstats.csv",row.names=TRUE,quote=FALSE)
 
 
 #~############################~#
@@ -291,15 +342,18 @@ write.csv(track,file="oculina_readstats.csv",row.names=TRUE,quote=FALSE)
 
 # #Using package DECIPHER as an alternative to 'assignTaxonomy'
 # install.packages("BiocManager")
-# #BiocManager::install("DECIPHER")
+# BiocManager::install("DECIPHER")
 # library(DECIPHER); packageVersion("DECIPHER")
+# version 2.22.0
 # #citation("DECIPHER")
 # 
 # #http://DECIPHER.codes/Downloads.html. Download the SILVA SSU r132 (modified) file to follow along.
 # 
+
+### not doing this method (skip to the Assign Taxonomy section)
 # dna <- DNAStringSet(getSequences(seqtab.nochim)) # Create a DNAStringSet from the ASVs
-# load("~/Downloads/SILVA_SSU_r132_March2018.RData") # CHANGE TO THE PATH OF YOUR TRAINING SET
-# ids <- IdTaxa(dna, trainingSet, strand="top", processors=NULL, verbose=FALSE, threshold=50) # use all processors
+# load("~/Downloads/SILVA_SSU_r138_2019.RData") # CHANGE TO THE PATH OF YOUR TRAINING SET
+#ids <- IdTaxa(dna, trainingSet, strand="top", processors=NULL, verbose=FALSE, threshold=50) # use all processors
 # ranks <- c("domain", "phylum", "class", "order", "family", "genus", "species") # ranks of interest
 # # Convert the output object of class "Taxa" to a matrix analogous to the output from assignTaxonomy
 # taxid <- t(sapply(ids, function(x) {
@@ -314,8 +368,8 @@ write.csv(track,file="oculina_readstats.csv",row.names=TRUE,quote=FALSE)
 #also doing other taxonomy method:
 #Assign Taxonomy
 
-#setwd("~/oculina/data")
-taxa <- assignTaxonomy(seqtab.nochim, "~/oculina/setup/tax/silva_nr_v132_train_set.fa.gz", multithread=TRUE)
+
+taxa <- assignTaxonomy(seqtab.nochim, "~/oculina_old/setup/tax/silva_nr_v132_train_set.fa.gz", multithread=TRUE)
 
 unname(head(taxa))
 taxa.print <- taxa # Removing sequence rownames for display only
@@ -323,24 +377,24 @@ rownames(taxa.print) <- NULL
 head(taxa.print)
 
 
-taxa.plus <- addSpecies(taxa, "~/oculina/tax/silva_species_assignment_v132.fa.gz",tryRC=TRUE,verbose=TRUE)
+taxa.plus <- addSpecies(taxa, "~/oculina_old/setup/tax/silva_species_assignment_v132.fa.gz",tryRC=TRUE,verbose=TRUE)
 
-saveRDS(taxa.plus, file="oculina16s_taxaplus.rds")
-# 81 out of 7296 were assigned to the species level.
-# Of which 72 had genera consistent with the input table
+saveRDS(taxa.plus, file="oculina16s_rev_taxaplus.rds") 
+#86 out of 7899 were assigned to the species level.
+#Of which 77 had genera consistent with the input table
 
-saveRDS(taxa, file="oculina16s_taxa.rds")
-#write.csv(taxa.plus, file="oculina16s_taxaplus.csv")
-#write.csv(taxa, file="oculina16s_taxa.csv")
+saveRDS(taxa, file="oculina16s_rev_taxa.rds")
+#write.csv(taxa.plus, file="oculina16s_rev_taxaplus.csv")
+#write.csv(taxa, file="oculina16s_rev_taxa.csv")
 
-saveRDS(seqtab.nochim, file="oculina16s_seqtab.nochim.rds")
-write.csv(seqtab.nochim, file="oculina16s_seqtab.nochim.csv")
-#write.csv(seqtab.nochim, file="oculina16s_seqtab.nochim_renamed.csv")
+saveRDS(seqtab.nochim, file="oculina16s_rev_seqtab.nochim.rds")
+write.csv(seqtab.nochim, file="oculina16s_rev_seqtab.nochim.csv")
 
 #### Read in previously saved datafiles ####
-seqtab.nochim <- readRDS("oculina16s_seqtab.nochim.rds")
-taxa <- readRDS("oculina16s_taxa.rds")
-taxa.plus <- readRDS("oculina16s__taxaplus.rds")
+#setwd(~/oculina_old/data)
+seqtab.nochim <- readRDS("oculina16s_rev_seqtab.nochim.rds")
+taxa <- readRDS("oculina16s_rev_taxa.rds")
+taxa.plus <- readRDS("oculina16s_rev_taxaplus.rds")
 
 
 #~############################~#
@@ -355,8 +409,7 @@ library(cowplot)
 library(ShortRead)
 
 #import dataframe holding sample information
-setwd("~/oculina/data")
-samdf<-read.csv("oculina16s_sampledata_plusneg_types.csv")
+samdf<-read.csv("oculina16s_sampledata_symdens.csv")
 head(samdf)
 rownames(samdf) <- samdf$id
 
@@ -365,7 +418,7 @@ ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
                sample_data(samdf), 
                tax_table(taxa.plus))
 
-ps # 7296 taxa, 73 samples
+ps # 7899 taxa, 77 samples
 
 #### first look at data ####
 ps_glom <- tax_glom(ps, "Family")
@@ -375,8 +428,8 @@ plot_bar(ps_glom, x="site", fill="Family")+
 #phyloseq object with shorter names - doing this one instead of one above
 ids <- paste0("sq", seq(1, length(colnames(seqtab.nochim))))
 #making output fasta file 
-#path='~/oculina/data/oculina16s.fasta'
-#uniquesToFasta(seqtab.nochim, path, ids = ids, mode = "w", width = 20000)
+path='~/oculina_old/data/oculina16s_rev.fasta'
+uniquesToFasta(seqtab.nochim, path, ids = ids, mode = "w", width = 20000)
 
 
 colnames(seqtab.nochim)<-ids
@@ -387,28 +440,28 @@ rownames(taxa2)<-ids
 ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
                sample_data(samdf), 
                tax_table(taxa2))
-ps #7296 taxa, 73 samples
+ps #7899 taxa, 77 samples
 
 
 #### remove mitochondria, chloroplasts, non-bacteria #### 
 ps.mito <- subset_taxa(ps, (Family=="Mitochondria"))
-ps.mito #94 taxa to remove
+ps.mito #97 taxa to remove
 ps.chlor <- subset_taxa(ps, (Order=="Chloroplast"))
-ps.chlor #392 taxa to remove
+ps.chlor #414 taxa to remove
 ps.notbact <- subset_taxa(ps, (Kingdom!="Bacteria") | is.na(Kingdom))
-ps.notbact #222 taxa to remove
+ps.notbact #242 taxa to remove
 
 
 ps.nomito <- subset_taxa(ps, (Family!="Mitochondria") | is.na(Family))
-ps.nomito #7202 taxa
+ps.nomito #7802 taxa
 ps.nochlor <- subset_taxa(ps.nomito, (Order!="Chloroplast") | is.na(Order))
-ps.nochlor #6810 taxa
+ps.nochlor #7388 taxa
 ps.clean <- subset_taxa(ps.nochlor, (Kingdom=="Bacteria"))
-ps.clean #6588 taxa
+ps.clean #7146 taxa
 
 #just archaea
 ps.arch <- subset_taxa(ps.nomito, (Kingdom=="Archaea"))
-ps.arch #143 taxa
+ps.arch #164 taxa
 
 #### identifying contamination ####
 #BiocManager::install("decontam")
@@ -430,28 +483,31 @@ contamdf.prev <- isContaminant(ps.clean, neg="is.neg",threshold=0.5)
 table(contamdf.prev$contaminant)
 
 # FALSE  TRUE 
-# 6582    6
+# 7140    6
 
 # Make phyloseq object of presence-absence in negative controls and true samples
 
 ps.pa <- transform_sample_counts(ps.clean, function(abund) 1*(abund>0))
-ps.pa.neg <- prune_samples(sample_data(ps.pa)$site == "neg", ps.pa)
+#ps.pa.neg <- prune_samples(sample_data(ps.pa)$site == "neg", ps.pa) #none
 ps.pa.pos <- prune_samples(sample_data(ps.pa)$site != "neg", ps.pa)
 # Make data.frame of prevalence in positive and negative samples
-df.pa <- data.frame(pa.pos=taxa_sums(ps.pa.pos), pa.neg=taxa_sums(ps.pa.neg),
-                    contaminant=contamdf.prev$contaminant)
-ggplot(data=df.pa, aes(x=pa.neg, y=pa.pos, color=contaminant)) + geom_point() +
-  xlab("Prevalence (Negative Controls)") + ylab("Prevalence (True Samples)")
+#df.pa <- data.frame(pa.pos=taxa_sums(ps.pa.pos), pa.neg=taxa_sums(ps.pa.neg),
+#                    contaminant=contamdf.prev$contaminant)
+#ggplot(data=df.pa, aes(x=pa.neg, y=pa.pos, color=contaminant)) + geom_point() +
+#  xlab("Prevalence (Negative Controls)") + ylab("Prevalence (True Samples)")
 
 
 #remove from ps.clean:
 ps.clean1 <- prune_taxa(!contamdf.prev$contaminant,ps.clean)
 #also remove negative controls, don't need them anymore I think
 ps.cleaner <- subset_samples(ps.clean1,(site!="neg"))
+#7140 taxa, 74 samples
+#saveRDS(ps.cleaner, file ="ps.cleaner_rev.RDS")
+
 
 #### blast asvs to NCBI to see if any eukaryotes got through ####
-##Running blast on BU SCC to make organism match files for my 16s data
-##used 'oculina16s.fasta' made way above
+##Running blast on longleaf to make organism match files for my 16s data
+##used 'oculina16s_rev.fasta' made way above
 
 ## On longleaf:
 ##submitted the following job:
@@ -463,14 +519,14 @@ ps.cleaner <- subset_samples(ps.clean1,(site!="neg"))
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH --mem=8gb
-#SBATCH --output <oculina16s_taxids.out>
+#SBATCH --output <oculina16s_rev_taxids.out>
 
 #module load blast
 #blastn -query oculina16s.fasta -db nt -outfmt "6 std staxids sskingdoms" -evalue 1e-5 -max_target_seqs 5 -out oculina16s_taxids.out -remote
 #[exit]
 #qsub -pe omp 28 blast_taxid.sh
 
-##takes a very long time (I had ~7300 ASVs, took like 32 hours)
+##takes a very long time (I had ~7300 ASVs for my larger dataset, took like 32 hours)
 
 
 ##now getting taxonomy info:
@@ -483,33 +539,33 @@ ps.cleaner <- subset_samples(ps.clean1,(site!="neg"))
 # #command taxonkit should work now
 
 ##extracting taxa ids from blast output for taxonkit (in terminal):
-# awk -F " " '{print $13}' oculina16s_taxids.out > ids
-# taxonkit lineage ids > ids.tax
-# cut -f1 oculina16s_taxids.out > ids.seq; paste ids.seq ids.tax > ids.seq.tax
-# grep "Eukaryota" ids.seq.tax | cut -f1 | sort | uniq > euk.contam.asvs
+# awk -F " " '{print $13}' oculina16s_rev_taxids.out > ids_rev
+# taxonkit lineage ids_rev > ids_rev.tax
+# cut -f1 oculina16s_rev_taxids.out > ids_rev.seq; paste ids_rev.seq ids_rev.tax > ids_rev.seq.tax
+# grep "Eukaryota" ids_rev.seq.tax | cut -f1 | sort | uniq > euk.contam.asvs_rev
 
-# convert euk.contam.asvs to .csv file
-eukasvs <- read_table("euk.contam.asvs", col_names = FALSE)
-write_csv(eukasvs, file = "euk.contam.asvs.csv", col_names = FALSE)
+# convert euk.contam.asvs_rev to .csv file
+eukasvs.rev <- read_table("euk.contam.asvs_rev", col_names = FALSE)
+write_csv(eukasvs.rev, file = "euk.contam.asvs_rev.csv", col_names = FALSE)
 
-##transferring euk.contam.asvs to back here
+##transferring euk.contam.asvs_rev to back here
 ##remove from ps.cleaner
 ##should be 151 to remove
-euks <- read.csv("euk.contam.asvs",header=FALSE)
+euks <- read.csv("euk.contam.asvs_rev",header=FALSE)
 euks_names <- euks$V1
 alltaxa <- taxa_names(ps.cleaner) #should be 6582
 `%!in%` <- Negate("%in%")
 keepers <- alltaxa[(alltaxa %!in% euks_names)] #keepers = 6573, so that means only 9 euks got through above
 ps.cleanest <- prune_taxa(keepers, ps.cleaner) 
 str(ps.cleanest)
-#6573 in ps.cleanest
+#7005 in ps.cleanest
 
 seqtab.cleanest <- data.frame(otu_table(ps.cleanest))
-#write.csv(seqtab.cleanest,file="oculina16s_seqtab.cleanest.csv")
-seqtab.cleanest <- read.csv("oculina16s_seqtab.cleanest.csv",row.names=1)
+#write.csv(seqtab.cleanest,file="oculina16s_rev_seqtab.cleanest.csv")
+seqtab.cleanest <- read.csv("oculina16s_rev_seqtab.cleanest.csv",row.names=1)
 
 ##re-read in cleaned phyloseq object
-saveRDS(ps.cleanest,file="phyloseq.cleanest.rds")
+saveRDS(ps.cleanest,file="phyloseq.cleanest_rev.rds")
 
 
 #### rarefy #####
@@ -538,35 +594,32 @@ total.df %>%
   ggplot(aes(x=1:nrow(.),y=total))+
   geom_line()  #shows # of samples on x and # of seqs in each sample on y
 
-#H2 and D6 need to be removed - 0 and 32 seqs respectively (this will be ps.less)
 total.df %>%
   arrange(total) %>%
   print(20) 
-subset(total, total <600) #2 samples
+subset(total, total <600) #3 samples need to be removed (D6, G9,)
 
 #originally got rid of all samples with less than 2000 seqs, changed to 600 on 6/21:
 #subset(total, total <2000)
-  #6 samples
-  # identified by MCMC.OTU below as being too low 
+#6 samples
+# identified by MCMC.OTU below as being too low 
 
-row.names.remove <- c("D6","H2")
+row.names.remove <- c("D6","H2","G9")
 seqtab.less <- seqtab.cleanest[!(row.names(seqtab.cleanest) %in% row.names.remove),]
-#samdf.rare <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove), ]
-#str(samdf.rare)
-#68 samples left
 samdf.less <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove), ]
+str(samdf.less) #71 samples left
 ps.less <- phyloseq(otu_table(seqtab.less, taxa_are_rows=FALSE), 
                     sample_data(samdf.less), 
                     tax_table(taxa2))
 ###saving
 #setwd("~/oculina/data")
-#write.csv(seqtab.less, file="oculina16s_seqtab.less")
-#save(ps.less,file="ps.less.Rdata")
+#write.csv(seqtab.less, file="oculina16s_rev_seqtab.less")
+#save(ps.less,file="ps.less_rev.Rdata")
 
 
 #for rarefied data, remove everything < 2000
-subset(total, total <2000) # 6 samples
-row.names.remove <- c("D6","F3","H2","F7","H4","H7")
+subset(total, total <2000) # 7 samples
+row.names.remove <- c("D6","F3","H2","F7","H4","H7", "G9")
 seqtab.less <- seqtab.cleanest[!(row.names(seqtab.cleanest) %in% row.names.remove),]
 samdf.rare <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove), ]
 seqtab.rare <- rrarefy(seqtab.less,sample=2000)
@@ -575,11 +628,11 @@ rarecurve(seqtab.rare,step=100,label=FALSE)
 ps.rare <- phyloseq(otu_table(seqtab.rare, taxa_are_rows=FALSE), 
                     sample_data(samdf.rare), 
                     tax_table(taxa2))
-ps.rare #6573 taxa, 64 samples
+ps.rare #7005 taxa, 67 samples
 
 #removing missing taxa - lost after rarefying
 ps.rare <- prune_taxa(taxa_sums(ps.rare) > 0, ps.rare)
-ps.rare #4572; was 4802 taxa during revisions (note: dif. from first time (had 4763))
+ps.rare #5237 taxa, 67 samples
 
 seqtab.rare <- data.frame(otu_table(ps.rare))
 
@@ -587,16 +640,16 @@ seqtab.rare <- data.frame(otu_table(ps.rare))
 #### data files - rarefied, decontaminated ####
 #saving
 #setwd("~/oculina/data")
-#write.csv(seqtab.rare, file="oculina16s_seqtab.cleanest.rare_2k")
-#save(taxa2,file="taxa2.Rdata")
+#write.csv(seqtab.rare, file="oculina16s_rev_seqtab.rare.2k")
+#save(taxa2,file="taxa2_rev.Rdata")
 
-seqtab.rare <- read.csv("oculina16s_seqtab.cleanest.rare_2k",row.names=1)
-load("taxa2.Rdata")
+seqtab.rare <- read.csv("oculina16s_rev_seqtab.rare.2k",row.names=1)
+load("taxa2_rev.Rdata")
 
 ps.rare <- phyloseq(otu_table(seqtab.rare, taxa_are_rows=FALSE), 
                     sample_data(samdf.rare), 
-                    tax_table(taxa2)) ### SHOULD I BE USING RARE, RARE.TRIM?
-ps.rare #4752 taxa; 64 samples
+                    tax_table(taxa2)) 
+ps.rare #5237 taxa; 67 samples
 
 #### trim underrepresented otus ####
 #install.packages("MCMC.OTU")
@@ -613,24 +666,26 @@ seq.formcmc <- cbind(X = 0, int)
 seq.formcmc$X <- nums
 seq.formcmc$sample <- samples
 
-
-seq.trim.allinfo <- purgeOutliers(seq.formcmc,count.columns=3:6575,sampleZcut=-2.5,otu.cut=0.0001,zero.cut=0.02)
+#change second columns value to equal total variables
+str(seq.formcmc)
+seq.trim.allinfo <- purgeOutliers(seq.formcmc,count.columns=3:7007,sampleZcut=-2.5,otu.cut=0.0001,zero.cut=0.02)
 #no samples with counts below z-score
-#1156 ASVs pass filters using seqtab.less (was 1158 before)
+#1170 ASVs pass filters using seqtab.less
 
 #remove sample info
-seq.trim <- seq.trim.allinfo[,3:795] # number variables of seq.trim.allinfo + 2; double check that 798 is what I should've used here
+str(seq.trim.allinfo)
+seq.trim <- seq.trim.allinfo[,3:825] # number variables of seq.trim.allinfo, i think
 
-#write.csv(seq.trim,file="oculina16s_seqtab.less.trim.csv")
-seq.trim <- read.csv("oculina16s_seqtab.less.trim.csv",row.names=1)
+#write.csv(seq.trim,file="oculina16s_rev_seqtab.trim.csv")
+seq.trim <- read.csv("oculina16s_rev_seqtab.trim.csv",row.names=1)
 
 #remake phyloseq objects
 ps.trim <- phyloseq(otu_table(seq.trim, taxa_are_rows=FALSE), 
                     sample_data(samdf.less), 
                     tax_table(taxa2))
-ps.trim #793 asvs, 64 samples
+ps.trim #823 taxa, 67 samples
 
-#save(ps.trim,file="ps.less.trim.Rdata")
+#save(ps.trim,file="ps.trim_rev.Rdata")
 
 
 #### rarefy - trimmed #####
@@ -655,13 +710,12 @@ rarecurve(seqtab.trim.rare,step=100,label=FALSE)
 ps.trim.rare <- phyloseq(otu_table(seqtab.trim.rare, taxa_are_rows=FALSE), 
                          sample_data(samdf.rare), 
                          tax_table(taxa2))
-ps.trim.rare #793 taxa, 61 samples during revision
+ps.trim.rare #823 taxa, 64 samples
 
 #saving
 #### data files - rarefied, decontaminated, trimmed ####
 #saving
-#write.csv(seqtab.trim.rare, file="oculina16s_seqtab.trim.rare_2k_v2.csv")
-#save(taxa2,file="taxa2_v2.Rdata")
+#write.csv(seqtab.trim.rare, file="oculina16s_rev_seqtab.trim.rare.2k.csv")
 
 
 #### making fasta file for picrust2 - trimmed not rarefied ####
@@ -670,9 +724,9 @@ library(dada2)
 
 #if needed:
 #setwd("~/oculina/data")
-seqtab.trim <- read.csv(file="oculina16s_seqtab.cleanest.trim.csv",row.names=1)
+seqtab.trim <- read.csv(file="oculina16s_rev_seqtab.trim.rare.2k.csv",row.names=1)
 load("taxa2.Rdata")
-samdf <- read.csv(file="oculina16s_sampledata_plusneg_types.csv")
+samdf <- read.csv(file="oculina16s_sampledata_symdens.csv")
 row.names(samdf) <- samdf$id
 
 ps.trim <- phyloseq(otu_table(seqtab.trim, taxa_are_rows=FALSE), 
@@ -687,14 +741,14 @@ rownames(trim.taxa)==colnames(trim.otu)
 colnames(trim.otu) <- trim.taxa$V8
 ids <- rownames(trim.taxa)
 
-path="~/oculina/data/oculina16s_cleanest.trimmed.fasta"
+path="~/oculina/data/oculina16s_rev_trimmed.fasta"
 uniquesToFasta(trim.otu, path, ids = ids, mode = "w", width = 20000)
 
-#setwd("~/oculina/tax")
+#setwd("~/oculina_old/setup/tax")
 #re-formatting seq table so picrust likes it:
 #a tab-delimited table with ASV ids as the first column and sample abundances as all subsequent columns
 seqtab.trim.t <- t(seqtab.trim)
-write.table(seqtab.trim.t,file="oculina16s_seqtab.cleanest.trim.t.txt")
+write.table(seqtab.trim.t,file="oculina16s_rev_seqtab.trim.t.txt")
 #manually removed the quotation marks that appeared in the file, and converted to tab delimited file from Excel
 
 #### moving on to oculina16s_revised_analysis.R script in other folder ####
