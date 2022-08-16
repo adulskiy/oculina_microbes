@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(vegan)
+library(phyloseq)
 
 #setwd("~/oculina/data")
 load("ps.rare.rev.Rdata")
@@ -64,10 +65,33 @@ ps.coral <- subset_samples(ps.rare,type=="coral")
 
 #convert density to numeris
 sample_data(ps.coral)$density <- as.numeric(sample_data(ps.coral)$density)
+
 ```
 
+```{r make NMDS plots (all types)}
+#library(ggpubr)
+#library(cowplot)
+#setwd("~/oculina/community_comp")
 
-```{r}
+nmds.alltypes <- plot_ordination(ps.rare,ordinate(ps.rare,"NMDS", "bray"),color="type", shape="type")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_color_manual(name="Type",values=c("bisque2","paleturquoise3","chocolate4"))+
+  scale_shape_manual(name="Type",values=c(8,4,9))+
+  #xlab("Axis 1 (25.8%)")+
+  #ylab("Axis 2 (22.5%)")+
+  ggtitle("Rarefied (Coral)")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+#ggsave(nmds.alltypes,file="./figures/nmds.alltypes.pdf",width=8,height=4)
+
+```
+
+```{r make NMDS plots (just coral)}
+#library(ggpubr)
+#library(cowplot)
+#setwd("~/oculina/community_comp")
+
 nmds.coral.site <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="site", shape="site")+
   stat_ellipse()+
   theme_cowplot()+
@@ -90,12 +114,50 @@ nmds.coral.ss <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),col
   ggtitle("Rarefied (Coral)")
 
 
-plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"), color="density")+
+nmds.coral.sd <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"), color="density")+
  # stat_ellipse()+
   theme_cowplot()+
   geom_point(size=3)+
   scale_color_continuous(high = "#132B43", low = "#CFEDF6")+
  # scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
   ggtitle("Rarefied (Coral)")
+
+nmds.coral.site
+nmds.coral.season
+nmds.coral.ss
+nmds.coral.sd
+
+
+#ggsave(nmds.coral.site,file="./figures/nmds.coral.site.pdf",width=8,height=4)
+#ggsave(nmds.coral.season,file="./figures/nmds.coral.season.pdf",width=8,height=4)
+#ggsave(nmds.coral.ss,file="./figures/nmds.coral.ss.pdf",width=8,height=4)
+#ggsave(nmds.coral.sd,file="./figures/nmds.coral.sd.pdf",width=8,height=4)
+
+
+```
+
+```{r NMDS coral all sites}
+nmds.coral.season.all <- plot_ordination(ps.coral,ordinate(ps.coral,"NMDS", "bray"),color="season", shape="season")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_colour_manual(name="Season", values=c("#8405A7FF","#ED7953FF"))+
+  scale_shape_manual(name="Season",values=c(8,4))+
+  #xlab("Axis 1 (40.5%)")+
+ # ylab("Axis 2 (19%)")+
+  ggtitle("Rarefied (Coral)")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+nmds.coral.ss.all <- plot_ordination(ps.coral,ordinate(ps.coral,"NMDS", "bray"),color="symbstate",shape="symbstate")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
+  scale_shape_manual(name="Symbiotic State",values=c(8,4),labels=c("Aposymbiotic","Symbiotic"))+
+  #xlab("Axis 1 (40.5%)")+
+ # ylab("Axis 2 (19%)")+
+  ggtitle("Rarefied (Coral)")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+#ggsave(nmds.coral.season.all,file="./figures/nmds.coral.season.all.pdf",width=8,height=4)
+#ggsave(nmds.coral.ss.all,file="./figures/nmds.coral.ss.all.pdf",width=9,height=5)
 ```
 

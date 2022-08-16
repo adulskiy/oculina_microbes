@@ -1,0 +1,367 @@
+---
+title: "oculina16s_communitycomp_ancom"
+author: "Ana Dulskiy"
+date: "8/16/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# ANCOM
+
+Tutorial [here](https://github.com/FrederickHuangLin/ANCOM)
+
+## Setup
+
+```{r ancom packages, eval=FALSE}
+library(readr)
+library(tidyverse)
+#library(dplyr)
+library(nlme)
+#install.packages('compositions')
+library(compositions)
+library(nloptr)
+#ancom isn't an R package so you need to go to the ancom github and download the ancom.R file and save into wd
+source("ancom.R")
+```
+
+
+```{r ancom all, eval=FALSE}
+# shouldn't use rarefied data according to authors
+# remove rows from ps.cleanest for unrarerified data
+
+load("~/oculina/data/ps.clean.rev.Rdata")
+
+#subset coral
+ps.cleanest.new.coral <- subset_samples(ps.cleanest.new,type=="coral")
+otu_data_unt <- data.frame(ps.cleanest.new.coral@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.cleanest.new.coral@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE 
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+# Step 2: ANCOM
+main_var = "symbstate"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.ss = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#setwd("~/oculina/community_comp/ancom")
+#saveRDS(res.ss, file="ancom.res.ss.nonnest.RDS")
+
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.ss$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.ss$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig  #0 W statistic for symb state?
+
+
+#using new categorizations makes no difference for symbstate analysis
+```
+
+```{r ancom coral season}
+
+#season
+main_var = "season"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.season.all = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.season.all, file="ancom.res.season.RDS")
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.season.all$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.season.all$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #8 taxa above 0.7
+```
+
+```{r ancom coral site}
+
+#site
+main_var = "site"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.site  = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.site, file="ancom.res.site.RDS")
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.site$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.site$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig 
+#fig is comparing NR and RI to CL; two taxa for each above 0.7
+```
+
+
+## ANCOM by site{.tabset}
+
+Note: shouldn't be done on rarefied according to authors
+
+Ran these three chunks once, then loading in data below
+
+### NR
+
+
+```{r ancom NR symb state, eval=FALSE}
+ps.less.coral.NR <- subset_samples(ps.less.coral,site=="NR")
+otu_data_unt <- data.frame(ps.less.coral.NR@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.less.coral.NR@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+###symb state
+# Step 2: ANCOM
+main_var = "symbstate"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.ss.NR = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.ss.NR,file="ancom.res.ss.NR.RDS")
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.ss.NR$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.ss.NR$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #only one value above 0? weird
+```
+
+
+```{r ancom NR season, eval=FALSE}
+###season
+# Step 2: ANCOM
+main_var = "season"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.season.NR = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.season.NR,file="ancom.res.season.NR.RDS")
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.ss.NR$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.season.NR$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #a few above zero
+```
+
+### RI
+
+```{r ancom RI symb state, eval=FALSE}
+ps.less.coral.RI <- subset_samples(ps.less.coral,site=="RI")
+otu_data_unt <- data.frame(ps.less.coral.RI@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.less.coral.RI@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+###symb state
+# Step 2: ANCOM
+main_var = "symbstate"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.ss.RI = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.ss.RI,file="ancom.res.ss.RI.RDS")
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.ss.RI$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.ss.RI$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #all zero
+```
+
+```{r ancom RI season, eval=FALSE}
+###season
+# Step 2: ANCOM
+main_var = "season"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.season.RI = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.season.RI,file="ancom.res.season.RI.RDS")
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.season.RI$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.season.RI$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #some sig
+```
+
+```{r ancom CL symb state, eval=FALSE}
+ps.less.coral.CL <- subset_samples(ps.less.coral,site=="CL")
+otu_data_unt <- data.frame(ps.less.coral.CL@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.less.coral.CL@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+###symb state
+# Step 2: ANCOM
+main_var = "symbstate"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.ss.CL = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.ss.RI,file="ancom.res.ss.RI.RDS")
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.ss.RI$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.ss.RI$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #all zero
+```
+
+### CL
+```{r ancom CL, eval=FALSE}
+ps.clean.coral.CL <- subset_samples(ps.clean.coral,site=="CL")
+otu_data_unt <- data.frame(ps.clean.coral.CL@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.clean.coral.CL@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+###symb state
+# Step 2: ANCOM
+main_var = "symbstate"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.ss.CL = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.ss.CL,file="ancom.res.ss.CL.RDS")
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.ss.CL$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.ss.CL$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #all zero
+```
+
+## Synthesizing ANCOM results
+
+Re-read in data
+
+```{r load ancom results}
+res.ss <- readRDS("./ancom/ancom.res.ss.nonnest.RDS")
+res.season <- readRDS("./ancom/ancom.res.season.RDS")
+res.site <- readRDS("./ancom/ancom.res.site.RDS")
+res.ss.NR <- readRDS("./ancom/ancom.res.ss.NR.RDS")
+res.ss.RI <- readRDS("./ancom/ancom.res.ss.RI.RDS")
+res.season.NR <- readRDS("./ancom/ancom.res.season.NR.RDS")
+res.season.RI <- readRDS("./ancom/ancom.res.season.RI.RDS")
+```
+```
+
+Which ones are 'significant'
+
+```{r subset out files}
+#symb state
+ss.out <- res.ss$out
+ss.out.sig <- ss.out[ss.out$detected_0.6==TRUE,]
+ss.out.sig #0
+NR.ss.out <- res.ss.NR$out
+NR.ss.out.sig <- NR.ss.out[NR.ss.out$detected_0.6==TRUE,] #0
+RI.ss.out <- res.ss.RI$out
+RI.ss.out.sig <- RI.ss.out[RI.ss.out$detected_0.6==TRUE,] #0
+
+#season
+season.out <- res.season$out
+season.out.sig <- season.out[season.out$detected_0.6==TRUE,]
+season.out.sig #9
+NR.season.out <- res.season.NR$out
+NR.season.out.sig <- NR.season.out[NR.season.out$detected_0.6==TRUE,] #8
+RI.season.out <- res.season.RI$out
+RI.season.out.sig <- RI.season.out[RI.season.out$detected_0.6==TRUE,] #4
+
+#site
+site.out <- res.site$out
+site.out.sig <- site.out[site.out$detected_0.6==TRUE,]
+site.out.sig #3
+
+```
