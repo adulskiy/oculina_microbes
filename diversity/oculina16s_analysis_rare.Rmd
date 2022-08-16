@@ -168,105 +168,6 @@ plot_specs_violin(specs_list, label_cex=0.6, cols="red") #all nonsig! lol
 ```
 
 
-## Alpha metrics {.tabset}
- 
-Looking at everything individually, more of a synthesis below
-
-### Shannon
-
-```{r shannon site}
-gg.site.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=site))+
-  geom_boxplot(outlier.shape=NA)+
-  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
-  geom_jitter(alpha=0.5)+
-  ylab("Shannon index")+
-  xlab("Site")+
-  theme_cowplot()+
-  theme(legend.position="none")
-gg.site.sha
-```
-
-
-```{r shannon coral}
-#plotting coral season & symb state
-gg.season.symb <- ggplot(df.div.coral, aes(x=season,y=Shannon,color=symbstate))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  xlab("Season")+
-  ylab("Shannon index")+
-  #scale_x_discrete(labels=c("Fall","Summer"))+
-  scale_colour_manual(values=c("lightcyan3","coral4")) +
-  theme_cowplot()+
-  guides(season = "none")+
-  labs(color = "Symbiotic State")+
-  #geom_jitter(alpha=0.5)+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-gg.season.symb
-
-```
-```{r shannon sedsw}
-#plotting sed and sw
-gg.sedsw <- ggplot(df.div.ss, aes(x=season,y=Shannon,color=season))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(shape=type), size = 3, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  xlab("Season")+
-  ylab("Shannon index")+
-  #scale_x_discrete(labels=c("Fall","Summer"))+
-  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
-  theme_cowplot()+
-  guides(color = "none")+
-  labs(shape = "Type")+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-
-gg.sedsw
-```
-
-```{r}
-gg.shannon.summer <- ggplot(df.div.summer, aes(x=site,y=Shannon,color=type))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=type), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  scale_colour_manual(values=c("darksalmon","paleturquoise3","chocolate4")) +
-  ylab("Shannon Index")+
-  xlab("Site")+
-  #labs(color = "Symbiotic State")+
-  theme_cowplot() +
-  scale_x_discrete(limits=c('NR','RI', 'CL')) +
-  theme(legend.position="none")+
-  ylim(min_value=0, max_value=6.5)+
-  ggtitle("a) Summer")
-
-gg.shannon.fall <- ggplot(df.div.fall, aes(x=site,y=Shannon,color=type))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=type), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  scale_colour_manual(name="Type",values=c("darksalmon","paleturquoise3","chocolate4"), labels=c("Coral","Seawater","Sediment")) +
-  ylab("Shannon Index")+
-  xlab("Site")+
-  #labs(color = "Symbiotic State")+
-  theme_cowplot() +
-  scale_x_discrete(limits=c('NR','RI'))+
-  ylim(min_value=0, max_value=6.5)+
-  ggtitle("b) Fall")
-
-plot_grid(gg.shannon.summer, gg.shannon.fall, axis="bt",align="hv")
-```
-
-
-```{r shannon symb state}
-gg.ss.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  scale_colour_manual(values=c("lightcyan3","coral4")) +
-  ylab("Shannon Index")+
-  xlab("Site")+
-  labs(color = "Symbiotic State")+
-  theme_cowplot() +
-  scale_x_discrete(limits=c('NR','RI', 'CL'))
-  #theme(legend.position="none")
-gg.ss.sha
-```
-
-
-
 ### GLMS - Alpha Diversity Indices ###
 ```{r shannon revised stats (glm)}
 df.div.coral$season <- as.factor(df.div.coral$season)
@@ -277,7 +178,7 @@ str(df.div.coral)
 ggplot(df.div.coral, aes(x=Shannon))+
   geom_histogram(binwidth=.2, fill="#69b3a2", color="#e9ecef", alpha=0.9)
 shapiro.test(df.div.coral$Shannon)
-#log trasform
+#log transform
 df.div.coral.log <- df.div.coral
 df.div.coral.log$Shannon <- log(df.div.coral.log$Shannon)
 ggplot(df.div.coral.log, aes(x=Shannon))+
@@ -509,7 +410,7 @@ summary(glm.2)
 
 ```{r MOS test to test for curvilinear relationship}
 mod <- MOStest(df.div.coral$density,df.div.coral$Shannon)
-isHump(mod)
+mod
 
 #idk how to interpret this sooo
 ```
@@ -924,6 +825,104 @@ Tutorial from dada2 author [here](https://f1000research.com/articles/5-1492/v2)
 #library(devtools)
 #devtools::install_github('twbattaglia/btools')
 #library(btools)
+```
+
+
+## Alpha metrics {.tabset}
+ 
+Looking at everything individually, more of a synthesis below
+
+### Shannon
+
+```{r shannon site}
+gg.site.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=site))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
+  geom_jitter(alpha=0.5)+
+  ylab("Shannon index")+
+  xlab("Site")+
+  theme_cowplot()+
+  theme(legend.position="none")
+gg.site.sha
+```
+
+
+```{r shannon coral}
+#plotting coral season & symb state
+gg.season.symb <- ggplot(df.div.coral, aes(x=season,y=Shannon,color=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  xlab("Season")+
+  ylab("Shannon index")+
+  #scale_x_discrete(labels=c("Fall","Summer"))+
+  scale_colour_manual(values=c("lightcyan3","coral4")) +
+  theme_cowplot()+
+  guides(season = "none")+
+  labs(color = "Symbiotic State")+
+  #geom_jitter(alpha=0.5)+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+gg.season.symb
+
+```
+```{r shannon sedsw}
+#plotting sed and sw
+gg.sedsw <- ggplot(df.div.ss, aes(x=season,y=Shannon,color=season))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(shape=type), size = 3, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  xlab("Season")+
+  ylab("Shannon index")+
+  #scale_x_discrete(labels=c("Fall","Summer"))+
+  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
+  theme_cowplot()+
+  guides(color = "none")+
+  labs(shape = "Type")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+gg.sedsw
+```
+
+```{r}
+gg.shannon.summer <- ggplot(df.div.summer, aes(x=site,y=Shannon,color=type))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=type), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  scale_colour_manual(values=c("darksalmon","paleturquoise3","chocolate4")) +
+  ylab("Shannon Index")+
+  xlab("Site")+
+  #labs(color = "Symbiotic State")+
+  theme_cowplot() +
+  scale_x_discrete(limits=c('NR','RI', 'CL')) +
+  theme(legend.position="none")+
+  ylim(min_value=0, max_value=6.5)+
+  ggtitle("a) Summer")
+
+gg.shannon.fall <- ggplot(df.div.fall, aes(x=site,y=Shannon,color=type))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=type), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  scale_colour_manual(name="Type",values=c("darksalmon","paleturquoise3","chocolate4"), labels=c("Coral","Seawater","Sediment")) +
+  ylab("Shannon Index")+
+  xlab("Site")+
+  #labs(color = "Symbiotic State")+
+  theme_cowplot() +
+  scale_x_discrete(limits=c('NR','RI'))+
+  ylim(min_value=0, max_value=6.5)+
+  ggtitle("b) Fall")
+
+plot_grid(gg.shannon.summer, gg.shannon.fall, axis="bt",align="hv")
+```
+
+
+```{r shannon symb state}
+gg.ss.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  scale_colour_manual(values=c("lightcyan3","coral4")) +
+  ylab("Shannon Index")+
+  xlab("Site")+
+  labs(color = "Symbiotic State")+
+  theme_cowplot() +
+  scale_x_discrete(limits=c('NR','RI', 'CL'))
+  #theme(legend.position="none")
+gg.ss.sha
 ```
 
 

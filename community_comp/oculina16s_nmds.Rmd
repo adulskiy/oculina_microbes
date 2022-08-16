@@ -1,0 +1,101 @@
+---
+title: "oculina16s_nmds"
+output: html_document
+date: '2022-08-15'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(vegan)
+
+#setwd("~/oculina/data")
+load("ps.rare.rev.Rdata")
+```
+
+
+Rename ASVs to be more informative
+
+```{r rename ASVs}
+tax <- as.data.frame(ps.rare@tax_table@.Data)
+tax.clean <- data.frame(row.names = row.names(tax),
+                        Kingdom = str_replace(tax[,1], "D_0__",""),
+                        Phylum = str_replace(tax[,2], "D_1__",""),
+                        Class = str_replace(tax[,3], "D_2__",""),
+                        Order = str_replace(tax[,4], "D_3__",""),
+                        Family = str_replace(tax[,5], "D_4__",""),
+                        Genus = str_replace(tax[,6], "D_5__",""),
+                        Species = str_replace(tax[,7], "D_6__",""),
+                        stringsAsFactors = FALSE)
+tax.clean[is.na(tax.clean)] <- ""
+
+
+for (i in 1:7){ tax.clean[,i] <- as.character(tax.clean[,i])}
+####### Fill holes in the tax table
+tax.clean[is.na(tax.clean)] <- ""
+for (i in 1:nrow(tax.clean)){
+  if (tax.clean[i,2] == ""){
+    kingdom <- paste("Kingdom_", tax.clean[i,1], sep = "")
+    tax.clean[i, 2:7] <- kingdom
+  } else if (tax.clean[i,3] == ""){
+    phylum <- paste("Phylum_", tax.clean[i,2], sep = "")
+    tax.clean[i, 3:7] <- phylum
+  } else if (tax.clean[i,4] == ""){
+    class <- paste("Class_", tax.clean[i,3], sep = "")
+    tax.clean[i, 4:7] <- class
+  } else if (tax.clean[i,5] == ""){
+    order <- paste("Order_", tax.clean[i,4], sep = "")
+    tax.clean[i, 5:7] <- order
+  } else if (tax.clean[i,6] == ""){
+    family <- paste("Family_", tax.clean[i,5], sep = "")
+    tax.clean[i, 6:7] <- family
+  } else if (tax.clean[i,7] == ""){
+    tax.clean$Species[i] <- paste("Genus",tax.clean$Genus[i], sep = "_")
+  }
+}
+
+tax_table(ps.rare) <- as.matrix(tax.clean)
+
+# subset coral
+ps.coral <- subset_samples(ps.rare,type=="coral")
+
+#convert density to numeris
+sample_data(ps.coral)$density <- as.numeric(sample_data(ps.coral)$density)
+```
+
+
+```{r}
+nmds.coral.site <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="site", shape="site")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
+  scale_shape_manual(name="Site",values=c(8,4,9))+
+  ggtitle("Rarefied (Coral)")
+
+nmds.coral.season <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="season", shape="season")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_color_manual(name="Season",values=c("darkorchid4","goldenrod1"))+
+  scale_shape_manual(name="Season",values=c(8,4))+
+  ggtitle("Rarefied (Coral)")
+
+nmds.coral.ss <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="symbstate", shape="symbstate")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
+  scale_shape_manual(name="Symbiotic State",values=c(8,4),labels=c("Aposymbiotic","Symbiotic"))+
+  ggtitle("Rarefied (Coral)")
+
+
+plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"), color="density")+
+ # stat_ellipse()+
+  theme_cowplot()+
+  geom_point(size=3)+
+  scale_color_continuous(high = "#132B43", low = "#CFEDF6")+
+ # scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
+  ggtitle("Rarefied (Coral)")
+```
+
