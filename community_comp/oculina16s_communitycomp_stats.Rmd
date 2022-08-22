@@ -37,7 +37,7 @@ setwd("~/oculina/data")
 samdf <- read.csv("oculina16s_sampledata_symdens.csv",header=TRUE)
 load("taxa2.Rdata")
 #load("ps.clean.Rdata")
-load("ps.rare.Rdata")
+load("ps.less.Rdata")
 #load("ps.rare.trim.Rdata")
 #load("ps.trim.Rdata")
 #ps.cleanest <- readRDS("phyloseq.cleanest.RDS")
@@ -48,7 +48,7 @@ load("ps.rare.Rdata")
 Rename ASVs to be more informative
 
 ```{r rename ASVs}
-tax <- as.data.frame(ps.rare@tax_table@.Data)
+tax <- as.data.frame(ps.less@tax_table@.Data)
 tax.clean <- data.frame(row.names = row.names(tax),
                         Kingdom = str_replace(tax[,1], "D_0__",""),
                         Phylum = str_replace(tax[,2], "D_1__",""),
@@ -85,7 +85,7 @@ for (i in 1:nrow(tax.clean)){
   }
 }
 
-tax_table(ps.rare) <- as.matrix(tax.clean)
+tax_table(ps.less) <- as.matrix(tax.clean)
 
 
 ```
@@ -97,14 +97,15 @@ tax_table(ps.rare) <- as.matrix(tax.clean)
 # Transform data using centered log ratio (makes data symmetric and linearly related)
 ```{r transform data using CLR}
 #library(microbiome)
-ps.rare.clr <- transform(ps.rare, 'clr') #otu table: no longer counts, but rather the dominance (or lack thereof) for each taxa relative to the geometric mean of all taxa on the logarithmic scale
+ps.less.clr <- transform(ps.less, 'clr') #otu table: no longer counts, but rather the dominance (or lack thereof) for each taxa relative to the geometric mean of all taxa on the logarithmic scale
 # read more here: https://www.nicholas-ollberding.com/post/introduction-to-the-statistical-analysis-of-microbiome-data-in-r/
+#basically, need to do CLR because microbiome data is compositional data and this is necessary in order to meet assumptions of methods below (Explains in link above and links within article to other papers); compositional data should be analyzed using euclidian instead of bray, I think
 
 
 #load("~/oculina/data/ps.rare.rev.clr.Rdata")
 #subset coral
-ps.coral <- subset_samples(ps.rare.clr,type=="coral")
-ps.coral <- subset_samples(ps.rare,type=="coral")
+ps.coral <- subset_samples(ps.less.clr,type=="coral")
+#ps.coral <- subset_samples(ps.less,type=="coral")
 
 
 ord.coral.clr <- ordinate(ps.coral, "RDA")
@@ -113,49 +114,95 @@ plot_scree(ord.coral.clr)+
   labs(x = "\nAxis", y = "Proportion of Variance\n")
 
 ```
+```{r}
+#seq.coral <- data.frame(otu_table(ps.coral))
+#dist.coral <- vegdist(seq.coral)
+#samdf.coral <- data.frame(sample_data(ps.coral))
+#row.names(samdf.coral)==row.names(seq.coral)
 
-```{r new phyloseq with revised symbstate classifications}
-seqtab.rare <- read.csv(file="~/oculina/data/oculina16s_rev_seqtab.rare.2k",row.names=1)
-load("~/oculina/data/taxa2.rev.Rdata")
-samdf <- read.csv(file="~/oculina/data/oculina16s_sampledata_symdens_new.csv")
-row.names(samdf) <- samdf$id
-ps.rare.new <- phyloseq(otu_table(seqtab.rare, taxa_are_rows=FALSE), 
-                    sample_data(samdf), 
-                    tax_table(taxa2))
-#save(ps.rare.new,file="ps.rare.new.Rdata")
+ord.clr <- ordinate(ps.coral, "RDA")
+plot_scree(ord.clr)+
+  geom_bar(stat="identity",fill="blue")+
+  labs(x = "\nAxis", y = "Proportion of Variance\n")
 
-#need to also make new phyloseq for ancom analysis (non-rarefied)
-seqtab.cleanest <- read.csv(file="~/oculina/data/oculina16s_rev_seqtab.cleanest.csv",row.names=1)
-ps.cleanest.new <- phyloseq(otu_table(seqtab.cleanest, taxa_are_rows=FALSE), 
-                    sample_data(samdf), 
-                    tax_table(taxa2))
-#save(ps.cleanest.new,file="ps.cleanest.new.Rdata")
+#Examine eigenvalues and % prop. variance explained
+head(ord.clr$CA$eig)
+sapply(ord.clr$CA$eig[1:5], function(x) x / sum(ord.clr$CA$eig))    
+
+#RDA without constraints is PCA…and we can generate the PCs using the phyloseq::ordinate function. A scree plot is then used to examine the proportion of total variation explained by each PC. Here we see that the first PC really stands out and then we have a gradual decline for the remaining components. You may hear people talk about looking for the “elbow” in the plot where the information plateaus to select the number of PCs to retain.
+
 ```
 
 ```{r stats for coral (clr-transformed)}
+# need to do euclidian instead of bray for CLR transformed data...
+
 seq.coral <- data.frame(otu_table(ps.coral))
-dist.coral <- vegdist(seq.coral)
+dist.coral <- vegdist(seq.coral, method="euclidian")
 samdf.coral <- data.frame(sample_data(ps.coral))
 row.names(samdf.coral)==row.names(seq.coral)
 
 
-### ADONIS ###
+adonis2(dist.coral ~ site, data=samdf.coral, permutations=999)
+#         Df SumOfSqs      R2      F Pr(>F)    
+#site      2     8045 0.06149 1.3758  0.001 ***
+#Residual 42   122801 0.93851                  
+#Total    44   130846 1.00000   
+
+adonis2(dist.coral ~ season, data=samdf.coral, permutations=999) 
+#         Df SumOfSqs      R2      F Pr(>F)    
+#season    1     5253 0.04014 1.7984  0.001 ***
+#Residual 43   125594 0.95986                  
+#Total    44   130846 1.00000             
+
+adonis2(dist.coral ~ symbstate, data=samdf.coral, permutations=999)
+#          Df SumOfSqs      R2      F Pr(>F)
+#symbstate  1     2930 0.02239 0.9849  0.524
+#Residual  43   127916 0.97761              
+#Total     44   130846 1.00000 
+
+# will look at site and season as main effects as well as their interaction term
+adonis2(dist.coral ~ site*season, data=samdf.coral, permutations=999)
+#            Df SumOfSqs      R2      F Pr(>F)    
+#site         2     8045 0.06149 1.4097  0.001 ***
+#season       1     4518 0.03453 1.5834  0.001 ***
+#site:season  1     4138 0.03163 1.4501  0.002 ** 
+#Residual    40   114144 0.87235                  
+#Total       44   130846 1.00000    
+
+
+# site * symbstate
+adonis2(dist.coral ~ site*symbstate, data=samdf.coral, permutations=999) #only site sig (***)
+
+# season * symbstate
+adonis2(dist.coral ~ season*symbstate, data=samdf.coral, permutations=999) #only season sig (***)
+
+adonis2(dist.coral ~ season*symbstate*site, data=samdf.coral, permutations=999) 
+#               Df SumOfSqs      R2      F Pr(>F)    
+#site            2     8045 0.06149 1.3775  0.001 ***
+#symbstate       1     2962 0.02264 1.0142  0.355    
+#site:symbstate  2     5946 0.04544 1.0179  0.375    
+#Residual       39   113894 0.87044                  
+#Total          44   130846 1.00000   
+
+# try with just NR and CL, as it turns out w/ density data that CL aposymbiotic corals are not so apo after all
+ps.coral.noCL <- subset_samples(ps.coral,site %in% c("NR","RI"))
+seq.coral.noCL <- data.frame(otu_table(ps.coral.noCL))
+dist.coral.noCL <- vegdist(seq.coral.noCL)
+samdf.coral.noCL <- data.frame(sample_data(ps.coral.noCL))
+row.names(samdf.coral.noCL)==row.names(seq.coral.noCL)
+adonis2(dist.coral.noCL ~ symbstate, data=samdf.coral.noCL, permutations=999) #not sig
+
+### OLD ADONIS ANALYSIS ###
 # Question: Are centroids significantly different from one another?
 # adonis needs to be done on distance matrix
 
 adonis2(dist.coral ~ site, data=samdf.coral, permutations=999)
-#         Df SumOfSqs      R2      F Pr(>F)    
-#site      2   1.5246 0.09979 2.1617  0.001 ***
-#Residual 39  13.7534 0.90021                  
-#Total    41  15.2780 1.00000    
+         
 
-adonis2(dist.coral ~ season, data=samdf.coral, permutations=999) #*** ??
-#         Df SumOfSqs      R2      F Pr(>F)    
-#season    1   1.0044 0.06574 2.8147  0.001 ***
-#Residual 40  14.2736 0.93426                  
-#Total    41  15.2780 1.00000      
+adonis2(dist.coral ~ season, data=samdf.coral, permutations=999) 
 
-adonis2(dist.coral ~ symbstate, data=samdf.coral, permutations=999) #not sig
+
+adonis2(dist.coral ~ symbstate, data=samdf.coral, permutations=999)
 
 
 # will look at site and season as main effects as well as their interaction term
