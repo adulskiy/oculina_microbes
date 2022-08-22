@@ -491,7 +491,7 @@ ps.pa <- transform_sample_counts(ps.clean, function(abund) 1*(abund>0))
 #ps.pa.neg <- prune_samples(sample_data(ps.pa)$site == "neg", ps.pa) #none
 ps.pa.pos <- prune_samples(sample_data(ps.pa)$site != "neg", ps.pa)
 # Make data.frame of prevalence in positive and negative samples
-#df.pa <- data.frame(pa.pos=taxa_sums(ps.pa.pos), pa.neg=taxa_sums(ps.pa.neg),
+#df.pa <- data.frame(pa.pos=taxa_sums(ps.pa.pos), pa.neg=taxa_sums(ps.pa),
 #                    contaminant=contamdf.prev$contaminant)
 #ggplot(data=df.pa, aes(x=pa.neg, y=pa.pos, color=contaminant)) + geom_point() +
 #  xlab("Prevalence (Negative Controls)") + ylab("Prevalence (True Samples)")
@@ -565,7 +565,7 @@ seqtab.cleanest <- data.frame(otu_table(ps.cleanest))
 seqtab.cleanest <- read.csv("oculina16s_rev_seqtab.cleanest.csv",row.names=1)
 
 ##re-read in cleaned phyloseq object
-saveRDS(ps.cleanest,file="phyloseq.cleanest_rev.rds")
+saveRDS(ps.cleanest,file="ps.cleanest_rev.rds")
 
 
 #### rarefy #####
@@ -716,7 +716,7 @@ ps.trim.rare #823 taxa, 64 samples
 #### data files - rarefied, decontaminated, trimmed ####
 #saving
 #write.csv(seqtab.trim.rare, file="oculina16s_rev_seqtab.trim.rare.2k.csv")
-
+#saveRDS(ps.trim.rare,file="ps.trim.rare_rev.Rdata")
 
 #### making fasta file for picrust2 - trimmed not rarefied ####
 library(phyloseq)

@@ -35,7 +35,7 @@ library(dada2)
 #setwd("~/oculina/data/")
 samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE) #R is making me put the full path all of a sudden, not sure why
 row.names(samdf) <- samdf$id
-load("~/oculina/data/taxa2_rev.Rdata")
+load("~/oculina/data/taxa2.rev.Rdata")
 ```
 
 ## Phyloseq objects
@@ -155,21 +155,25 @@ metadata <- sample_data(ps.coral) %>%
 metadata$density <- as.numeric(metadata$density)
 specs_list$"SymbDensity" <- phy_or_env_spec(otutable.over10, env=metadata$density,n_sim=1000,n_cores=spec_ncores)
 
-```
-
-
-```{r plotting specificity results}
 plot_specs_violin(specs_list, label_cex=0.6, cols="red") #all nonsig! lol
 
 #specs_df <- aggregate_specs_list(specs_list, byFeature=FALSE, fd=seqtab.rare, fd_id=1)
 #ggplot(specs_list, aes(x=Variable, y=Spec, fill=Variable)) +
 #  geom_violin()+
 #  geom_jitter(width=0.2,size=0.2)
+
 ```
 
 
-### GLMS - Alpha Diversity Indices ###
+### GLMS - Alpha Diversity Indices
 ```{r shannon revised stats (glm)}
+
+# Notes on alpha diversity indices:
+    # Shannon - measures richness, so how many different bacteria in each sample
+    # Chao1 - richness can be sensitive to read depth; Chao1 has some corrections to overcome this
+    # Simpson - measures probability of resampling the same species on two consecutive draws with replacement
+
+
 df.div.coral$season <- as.factor(df.div.coral$season)
 df.div.coral$site <- as.factor(df.div.coral$site)
 df.div.coral$density <- as.numeric(df.div.coral$density)
@@ -416,7 +420,7 @@ mod
 ```
 
 
-
+### Old stats (ANOVA)
 
 ```{r shannon stats coral}
 #Shannon

@@ -159,7 +159,7 @@ adonis2(dist.coral ~ symbstate, data=samdf.coral, permutations=999) #not sig
 
 
 # will look at site and season as main effects as well as their interaction term
-adonis2(dist.coral ~ site*season, data=samdf.coral, permutations=999) #not sig
+adonis2(dist.coral ~ site*season, data=samdf.coral, permutations=999)
 #            Df SumOfSqs      R2      F Pr(>F)    
 #site         2   1.5246 0.09979 2.2915  0.001 ***
 #season       1   0.7769 0.05085 2.3353  0.001 ***
@@ -172,6 +172,8 @@ adonis2(dist.coral ~ site*symbstate, data=samdf.coral, permutations=999) #only s
 
 # season * symbstate
 adonis2(dist.coral ~ season*symbstate, data=samdf.coral, permutations=999) #only season sig (***)
+
+adonis2(dist.coral ~ season*symbstate*site, data=samdf.coral, permutations=999) #only season sig (***)
 
 # try with just NR and CL, as it turns out w/ density data that CL aposymbiotic corals are not so apo after all
 ps.coral.noCL <- subset_samples(ps.coral,site %in% c("NR","RI"))

@@ -14,14 +14,14 @@ library(vegan)
 library(phyloseq)
 
 #setwd("~/oculina/data")
-load("ps.rare.rev.Rdata")
+load("~/oculina/data/ps.less.rev.Rdata")
 ```
 
 
 Rename ASVs to be more informative
 
 ```{r rename ASVs}
-tax <- as.data.frame(ps.rare@tax_table@.Data)
+tax <- as.data.frame(ps.less@tax_table@.Data)
 tax.clean <- data.frame(row.names = row.names(tax),
                         Kingdom = str_replace(tax[,1], "D_0__",""),
                         Phylum = str_replace(tax[,2], "D_1__",""),
@@ -58,12 +58,12 @@ for (i in 1:nrow(tax.clean)){
   }
 }
 
-tax_table(ps.rare) <- as.matrix(tax.clean)
+tax_table(ps.less) <- as.matrix(tax.clean)
 
 # subset coral
-ps.coral <- subset_samples(ps.rare,type=="coral")
+ps.coral <- subset_samples(ps.less,type=="coral")
 
-#convert density to numeris
+#convert density to numeric
 sample_data(ps.coral)$density <- as.numeric(sample_data(ps.coral)$density)
 
 ```
@@ -73,17 +73,17 @@ sample_data(ps.coral)$density <- as.numeric(sample_data(ps.coral)$density)
 #library(cowplot)
 #setwd("~/oculina/community_comp")
 
-nmds.alltypes <- plot_ordination(ps.rare,ordinate(ps.rare,"NMDS", "bray"),color="type", shape="type")+
+nmds.alltypes <- plot_ordination(ps.less,ordinate(ps.less,"NMDS", "bray"),color="type", shape="type")+
   stat_ellipse()+
   theme_cowplot()+
   scale_color_manual(name="Type",values=c("bisque2","paleturquoise3","chocolate4"))+
   scale_shape_manual(name="Type",values=c(8,4,9))+
   #xlab("Axis 1 (25.8%)")+
   #ylab("Axis 2 (22.5%)")+
-  ggtitle("Rarefied (Coral)")+
+  ggtitle("Rarefied (All)")+
   facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
 
-#ggsave(nmds.alltypes,file="./figures/nmds.alltypes.pdf",width=8,height=4)
+#ggsave(nmds.alltypes,file="./figures/raw/nmds.alltypes.pdf",width=8,height=4)
 
 ```
 
@@ -114,7 +114,7 @@ nmds.coral.ss <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),col
   ggtitle("Rarefied (Coral)")
 
 
-nmds.coral.sd <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"), color="density")+
+nmds.coral.sd <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"), color="density",shape="site")+
  # stat_ellipse()+
   theme_cowplot()+
   geom_point(size=3)+
@@ -128,10 +128,10 @@ nmds.coral.ss
 nmds.coral.sd
 
 
-#ggsave(nmds.coral.site,file="./figures/nmds.coral.site.pdf",width=8,height=4)
-#ggsave(nmds.coral.season,file="./figures/nmds.coral.season.pdf",width=8,height=4)
-#ggsave(nmds.coral.ss,file="./figures/nmds.coral.ss.pdf",width=8,height=4)
-#ggsave(nmds.coral.sd,file="./figures/nmds.coral.sd.pdf",width=8,height=4)
+#ggsave(nmds.coral.site,file="./figures/raw/nmds.coral.site.pdf",width=8,height=4)
+#ggsave(nmds.coral.season,file="./figures/raw/nmds.coral.season.pdf",width=8,height=4)
+#ggsave(nmds.coral.ss,file="./figures/raw/nmds.coral.ss.pdf",width=8,height=4)
+#ggsave(nmds.coral.sd,file="./figures/raw/nmds.coral.sd.pdf",width=8,height=4)
 
 
 ```
@@ -157,7 +157,7 @@ nmds.coral.ss.all <- plot_ordination(ps.coral,ordinate(ps.coral,"NMDS", "bray"),
   ggtitle("Rarefied (Coral)")+
   facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
 
-#ggsave(nmds.coral.season.all,file="./figures/nmds.coral.season.all.pdf",width=8,height=4)
-#ggsave(nmds.coral.ss.all,file="./figures/nmds.coral.ss.all.pdf",width=9,height=5)
+#ggsave(nmds.coral.season.all,file="./figures/raw/nmds.coral.season.all.pdf",width=8,height=4)
+#ggsave(nmds.coral.ss.all,file="./figures/raw/nmds.coral.ss.all.pdf",width=9,height=5)
 ```
 

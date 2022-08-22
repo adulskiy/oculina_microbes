@@ -13,14 +13,14 @@ library(tidyverse)
 library(vegan)
 
 #setwd("~/oculina/data")
-load("ps.rare.rev.Rdata")
+load("ps.less.rev.Rdata")
 ```
 
 
 Rename ASVs to be more informative
 
 ```{r rename ASVs}
-tax <- as.data.frame(ps.rare@tax_table@.Data)
+tax <- as.data.frame(ps.less@tax_table@.Data)
 tax.clean <- data.frame(row.names = row.names(tax),
                         Kingdom = str_replace(tax[,1], "D_0__",""),
                         Phylum = str_replace(tax[,2], "D_1__",""),
@@ -57,10 +57,10 @@ for (i in 1:nrow(tax.clean)){
   }
 }
 
-tax_table(ps.rare) <- as.matrix(tax.clean)
+tax_table(ps.less) <- as.matrix(tax.clean)
 
 # subset coral
-ps.coral <- subset_samples(ps.rare,type=="coral")
+ps.coral <- subset_samples(ps.less,type=="coral")
 
 #convert density to numeric
 sample_data(ps.coral)$density <- as.numeric(sample_data(ps.coral)$density)
