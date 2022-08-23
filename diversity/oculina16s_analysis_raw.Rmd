@@ -1,0 +1,345 @@
+---
+title: "oculina16s_analysis_raw"
+output:
+  word_document: default
+  html_document: default
+date: '2022-08-17'
+---
+### Based on DADA2 Pipeline 1.16 Walkthrough & Nicola Kriefall's Moorea holobiont analysis
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+## Packages
+```{r packages}
+library(ggplot2)
+library(cowplot)
+library(phyloseq)
+library(car)
+library(ggpubr)
+library(vegan)
+library(dada2)
+```
+
+
+## Read in data
+
+```{r read in data}
+#setwd("~/oculina/data/")
+samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE) 
+row.names(samdf) <- samdf$id
+load("~/oculina/data/taxa2.rev.Rdata")
+```
+
+## Phyloseq objects
+
+```{r making phyloseq objects, eval=FALSE}
+seqtab.less <- read.csv("~/oculina/data/oculina16s_rev_seqtab.less",row.names=1)
+load("~/oculina/data/ps.less_rev.Rdata")
+ps.less #7005 taxa, 71 samples
+```
+
+```{r}
+#tried to do merge_phyloseq so that I could easily add new metadata but can't get it to work
+#samdf.new <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv")
+#density.new <- samdf.new %>% select(id, density)
+#samdf.sd <- density.new %>% rename(density.new = density)
+#rownames(samdf.sd) <- samdf.new$id
+#row.names.remove <- c("D6","H2","G9","F10","G10","H10")
+#samdf.sd <- samdf.sd[!(row.names(samdf.sd) %in% row.names.remove), ]
+
+#ps.less.new <- merge_phyloseq(ps.less, samdf.sd)
+#head(sample_data(ps.less.new))
+#samdf.less <- sample_data(ps.less.new)
+
+#install.packages("arsenal")
+#library("arsenal")
+
+#summary(comparedf(samdf.sd, samdf.less))
+
+
+```
+
+
+# Diversity
+
+[Notes from phyloseq author](https://rdrr.io/bioc/phyloseq/man/estimate_richness.html)
+Visualize alpha-diversity - Should be done on raw, untrimmed dataset
+
+```{r generate div metrics}
+df <- data.frame(estimate_richness(ps.less, split=TRUE, measures=c("Shannon","Simpson", "InvSimpson","Observed")))
+# NOTE: I get a warning that my data doesn't contain singletons, but this is untrimmed raw data, so I'm not sure why this is the case. I do not get this error when I use ps.rare, presumably because rarefying data caused some data to become singletons.
+# NOTE from DADA2 creator: DADA2 does not call singletons, due to the difficulty of differentiating rare singleton errors from real singleton variants. This means you should not use the output of DADA2 to estimate richness (eg. Chao S1). However, you shouldn't have been doing that with the output of other methods either, as the high levels of FP singletons made richness estimates wrong anyway. Right now, I don't think a method exists that can make valid richness estimates from high-throughput amplicon data due to the difficulty of calling singletons accurately, and the sensitivity of richness estimation to the number of singletons. Other measures of diversity that aren't totally reliant on singletons, eg. Shannon/Simpson, are valid to use, and you can ignore the warning in phyloseq when calculating those measures.
+# CONCLUSION: do not use Chao1 in analysis; Shannon and Simpson should be okay
+
+df$id <- rownames(df)
+df.div <- merge(df,samdf,by="id") #add sample data
+#shannon diversity divided by species richness
+df.div$even <- df.div$Shannon/(log(df.div$Observed))
+df.div.NR <- subset(df.div,site=="NR")
+df.div.RI <- subset(df.div,site=="RI")
+df.div.CL <- subset(df.div,site=="CL")
+df.div.summer <- subset(df.div,season=="Summer")
+df.div.fall <- subset(df.div,season=="Fall")
+df.div.coral <- subset(df.div, type=="coral")
+df.div.ss <- subset(df.div, type=="sediment" | type =="seawater")
+df.div.coral.NR <- subset(df.div.coral,site=="NR")
+df.div.coral.RI <- subset(df.div.coral,site=="RI")
+df.div.coral.CL <- subset(df.div.coral,site=="CL")
+df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
+```
+
+### GLMS - Alpha Diversity Indices
+
+```{r compare types (coral, sed, sw)}
+library(stats)
+#install.packages("MuMIn")
+library(MuMIn)
+
+glm.0 <- glm(Shannon ~ 1, data=df.div, family=gaussian())
+glm.1 <- glm(Shannon ~ type, data=df.div, family=gaussian)
+glm.2 <- glm(Shannon ~ type + season + site, data=df.div, family=gaussian)
+glm.3 <- glm(Shannon ~ type + season * site, data=df.div, family=gaussian)
+glm.4 <- glm(Shannon ~ type * season + site, data=df.div, family=gaussian)
+glm.5 <- glm(Shannon ~ type * season * site, data=df.div, family=gaussian)
+
+AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.1 is best model
+summary(glm.1)
+#             Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)    3.5051     0.1202  29.157  < 2e-16 ***
+#typeseawater   0.2256     0.2473   0.912    0.365    
+#typesediment   1.5608     0.2550   6.120  6.3e-08 ***
+
+#looks like seawater is not significantly different from coral, but sediment is very different
+```
+
+```{r shannon glm coral}
+
+# Notes on alpha diversity indices:
+    # Shannon - measures richness, so how many different bacteria in each sample
+    # Chao1 - richness can be sensitive to read depth; Chao1 has some corrections to overcome this
+    # Simpson - measures probability of resampling the same species on two consecutive draws with replacement
+
+df.div.coral$season <- as.factor(df.div.coral$season)
+df.div.coral$site <- as.factor(df.div.coral$site)
+df.div.coral$density <- as.numeric(df.div.coral$density)
+str(df.div.coral)
+
+qqPlot(df.div.coral$Shannon)
+shapiro.test(df.div.coral$Shannon) #normally distributed
+ggdensity(df.div.coral$Shannon)
+
+### GLM - Shannon ###
+#using Gaussian distribution bc normal distribution
+
+glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=gaussian())
+glm.1 <- glm(Shannon ~ season+site+density, data=df.div.coral, family=gaussian())
+glm.2 <- glm(Shannon ~ season+site*density, data=df.div.coral, family=gaussian())
+glm.3 <- glm(Shannon ~ season*site+density, data=df.div.coral, family=gaussian())
+glm.4 <- glm(Shannon ~ site+season*density, data=df.div.coral, family=gaussian())
+glm.5 <- glm(Shannon ~ season*site*density, data=df.div.coral, family=gaussian())
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.2 best AIC, glm.5 very close
+summary(glm.2)
+#                 Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)     4.063e+00  4.378e-01   9.281 2.61e-11 ***
+#seasonSummer   -2.671e-01  2.272e-01  -1.175   0.2472    
+#siteNR         -8.518e-01  4.506e-01  -1.890   0.0664 .  
+#siteRI         -2.008e-01  4.430e-01  -0.453   0.6528    
+#density        -1.097e-07  4.068e-08  -2.696   0.0104 *  
+#siteNR:density  2.302e-07  5.150e-08   4.470 6.85e-05 ***
+#siteRI:density  8.413e-08  4.402e-08   1.911   0.0636 . 
+
+
+
+# This paper (https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0224060&type=printable) looked at Shannon diveristy using GLM with log link function and Quasi-Poisson distribution - trying below
+glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=quasipoisson())
+glm.1 <- glm(Shannon ~ season+site+density, data=df.div.coral, family=quasipoisson())
+#summary(glm.1)
+glm.2 <- glm(Shannon ~ season+site*density, data=df.div.coral, family=quasipoisson())
+#summary(glm.2)
+glm.3 <- glm(Shannon ~ season*site+density, data=df.div.coral, family=quasipoisson())
+#summary(glm.3)
+glm.4 <- glm(Shannon ~ site+season*density, data=df.div.coral, family=quasipoisson())
+#summary(glm.4)
+glm.5 <- glm(Shannon ~ season*site*density, data=df.div.coral, family=quasipoisson())
+#summary(glm.5)
+
+#Issue: can't easily calculate AIC of quasi models (https://cran.r-project.org/web/packages/bbmle/vignettes/quasi.pdf)
+
+```
+
+
+```{r GLM Evenness}
+## GLM - Evenness ###
+qqPlot(df.div.coral$even)
+shapiro.test(df.div.coral$even) #p=0.045
+ggdensity(df.div.coral$even) #left skewed?
+
+
+glm.0 <- glm(even ~ 1, data=df.div.coral, family=Gamma())
+glm.1 <- glm(even ~ season+site+density, data=df.div.coral, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(even ~ season+site*density, data=df.div.coral, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(even ~ season*site+density, data=df.div.coral, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(even ~ site+season*density, data=df.div.coral, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(even ~ season*site*density, data=df.div.coral, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.0 (Null model!) is best with both gaussian and gamma
+summary(glm.0) #so none of the variables are predictive of evenness?
+
+#for glm.5:
+#Coefficients: (2 not defined because of singularities)
+#^^^why does this happen?! i think bc of CL...can I change CL to not be intercept?
+
+```
+
+
+
+```{r GLM richness}
+## GLM - richness ###
+qqPlot(df.div.coral$Observed) # discrete, not continuous
+shapiro.test(df.div.coral$Observed) #really sig/not normal
+ggdensity(df.div.coral$Observed) #right skewed
+
+
+glm.0 <- glm(Observed ~ 1, data=df.div.coral, family=poisson())
+glm.1 <- glm(Observed ~ season+site+density, data=df.div.coral, family=poisson())
+#summary(glm.1)
+glm.2 <- glm(Observed ~ season+site*density, data=df.div.coral, family=poisson())
+#summary(glm.2)
+glm.3 <- glm(Observed ~ season*site+density, data=df.div.coral, family=poisson())
+#summary(glm.3)
+glm.4 <- glm(Observed ~ site+season*density, data=df.div.coral, family=poisson())
+#summary(glm.4)
+glm.5 <- glm(Observed ~ season*site*density, data=df.div.coral, family=poisson())
+#summary(glm.5)
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+# all glms except null have same AIC, seems sus
+summary(glm.0) #so none of the variables are predictive of evenness?
+
+#for glm.5:
+#Coefficients: (2 not defined because of singularities)
+#^^^why does this happen?! i think bc of CL...can I change CL to not be intercept?
+
+```
+
+```{r GLM Simpson}
+## GLM - Simpson ###
+qqPlot(df.div.coral$Simpson)
+shapiro.test(df.div.coral$Simpson) #not normally distributed
+ggdensity(df.div.coral$Simpson) #very left skewed
+
+
+#maybe should use gamma? https://stats.stackexchange.com/questions/190763/how-to-decide-which-glm-family-to-use
+
+
+glm.0 <- glm(Simpson ~ 1, data=df.div.coral, family=Gamma())
+glm.1 <- glm(Simpson ~ season+site+density, data=df.div.coral, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(Simpson ~ season+site*density, data=df.div.coral, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(Simpson ~ season*site+density, data=df.div.coral, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(Simpson ~ site+season*density, data=df.div.coral, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(Simpson ~ season*site*density, data=df.div.coral, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+# null model best again for gaussian, glm.4 best for gamma but glm.0 very close
+summary(glm.4) #for gamma
+#                       Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)           1.138e+00  4.941e-02  23.031   <2e-16 ***
+#siteNR               -9.423e-02  4.100e-02  -2.298   0.0270 *  
+#siteRI               -7.796e-02  4.187e-02  -1.862   0.0702 .  
+#seasonSummer          3.905e-02  4.249e-02   0.919   0.3637    
+#density              -1.525e-09  5.020e-09  -0.304   0.7629    
+#seasonSummer:density  2.289e-09  5.575e-09   0.411   0.6836   
+
+#library(lmtest)
+#check for heteroskedasticity
+bptest(glm.4)
+```
+
+```{r GLM InvSimpson}
+## GLM - InvSimpson ###
+qqPlot(df.div.coral$InvSimpson)
+shapiro.test(df.div.coral$InvSimpson) #not normally distributed
+ggdensity(df.div.coral$InvSimpson) #very right skewed - I think gamma best
+
+#models:
+glm.0 <- glm(InvSimpson ~ 1, data=df.div.coral, family=Gamma())
+glm.1 <- glm(InvSimpson ~ season+site+density, data=df.div.coral, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(InvSimpson ~ season+site*density, data=df.div.coral, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(InvSimpson ~ season*site+density, data=df.div.coral, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(InvSimpson ~ site+season*density, data=df.div.coral, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(InvSimpson ~ season*site*density, data=df.div.coral, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.5 best AIC
+summary(glm.5)
+#                              Estimate Std. Error t value Pr(>|t|)   
+#(Intercept)                 -8.164e-03  2.522e-02  -0.324  0.74810   
+#seasonSummer                 2.943e-02  1.917e-02   1.535  0.13371   
+#siteNR                       8.760e-02  3.964e-02   2.210  0.03375 * 
+#siteRI                       2.720e-02  2.404e-02   1.131  0.26565   
+#density                      1.258e-08  5.244e-09   2.398  0.02195 * 
+#seasonSummer:siteNR         -3.635e-02  4.204e-02  -0.865  0.39320   
+#seasonSummer:siteRI                 NA         NA      NA       NA   
+#seasonSummer:density        -1.561e-09  3.098e-09  -0.504  0.61744   
+#siteNR:density              -1.734e-08  5.926e-09  -2.926  0.00599 **
+#siteRI:density              -9.552e-09  4.550e-09  -2.099  0.04308 * 
+#seasonSummer:siteNR:density  2.196e-09  4.568e-09   0.481  0.63368   
+#seasonSummer:siteRI:density         NA         NA      NA       NA   
+
+#Coefficients: (2 not defined because of singularities)
+#^^^Why?!
+```
+
+```{r GLM excluding CL - sanity check?}
+df.div.coral.NR.RI$season <- as.factor(df.div.coral.NR.RI$season)
+df.div.coral.NR.RI$site <- as.factor(df.div.coral.NR.RI$site)
+df.div.coral.NR.RI$density <- as.numeric(df.div.coral.NR.RI$density)
+str(df.div.coral.NR.RI)
+
+glm.0 <- glm(Shannon ~ 1, data=df.div.coral.NR.RI, family=gaussian())
+glm.1 <- glm(Shannon ~ season+site+density, data=df.div.coral.NR.RI, family=gaussian())
+#summary(glm.1)
+glm.2 <- glm(Shannon ~ season+site*density, data=df.div.coral.NR.RI, family=gaussian())
+#summary(glm.2)
+glm.3 <- glm(Shannon ~ season*site+density, data=df.div.coral.NR.RI, family=gaussian())
+#summary(glm.3)
+glm.4 <- glm(Shannon ~ site+season*density, data=df.div.coral.NR.RI, family=gaussian())
+#summary(glm.4)
+glm.5 <- glm(Shannon ~ season*site*density, data=df.div.coral.NR.RI, family=gaussian())
+#summary(glm.5)
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.2 best model (still! woo!)
+
+summary(glm.2)
+#                Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)     3.211662   0.271487  11.830 7.97e-13 ***
+#seasonSummer   -0.267047   0.227255  -1.175 0.249198    
+#siteRI          0.650927   0.302829   2.149 0.039783 *  
+#density         0.018828   0.004934   3.816 0.000632 ***
+#siteRI:density -0.022815   0.005573  -4.094 0.000295 ***
+```
+
