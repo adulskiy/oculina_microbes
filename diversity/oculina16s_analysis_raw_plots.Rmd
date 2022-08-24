@@ -53,7 +53,6 @@ df <- data.frame(estimate_richness(ps.less, split=TRUE, measures=c("Shannon","In
 
 #library(mia)
 
-
 df$id <- rownames(df)
 df.div <- merge(df,samdf,by="id") #add sample data
 df.div$density <- as.numeric(df.div$density)
@@ -82,20 +81,26 @@ df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
 df.div.coral$season <- as.character(df.div.coral$season)
 df.div.coral$season <- factor(df.div.coral$season, levels=c("Summer","Fall"))
 
+#reorder sites
+df.div.coral$site <- as.character(df.div.coral$site)
+df.div.coral$site <- factor(df.div.coral$site, levels=c("NR","RI","CL"))
+
 #all types
-gg.sha.site.alltypes <-ggplot(df.div,aes(x=type,y=Shannon,color=type))+
+gg.sha.site.alltypes <-ggplot(df.div,aes(x=type,y=Shannon,color=type,group=type))+
   geom_boxplot(outlier.shape=NA)+
+  geom_point(position="jitter", size=2, alpha=0.4)+
   scale_color_manual(values=c("darksalmon","paleturquoise3","chocolate4"))+
   scale_x_discrete(labels=c("Coral","SW","Sed."))+
-  geom_jitter(alpha=0.5)+
-  ylab("Shannon index")+
-  xlab("Site")+
+  #geom_jitter(alpha=0.5)+
+  ylab("Shannon Index")+
+  labs(x=NULL)+
   theme_cowplot()+
   theme(legend.position="none")+
   facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
 
-gg.sha.seas.alltypes <-ggplot(df.div,aes(x=type,y=Shannon,color=type))+
+gg.sha.seas.alltypes <-ggplot(df.div,aes(x=type,y=Shannon,color=type,group=type))+
   geom_boxplot(outlier.shape=NA)+
+  geom_point(position=position_jitter(width=0.1), size=2, alpha=0.4)+
   scale_color_manual(values=c("darksalmon","paleturquoise3","chocolate4"))+
   scale_x_discrete(labels=c("Coral","SW","Sed."))+
   geom_jitter(alpha=0.5)+
@@ -106,21 +111,35 @@ gg.sha.seas.alltypes <-ggplot(df.div,aes(x=type,y=Shannon,color=type))+
   facet_wrap(~forcats::fct_relevel(season, "Summer","Fall"))
 
 #setwd("~/oculina/diversity")
-#ggsave(gg.sha.site.alltypes,file="./figures/gg.sha.site.alltypes.pdf",width=8,height=4)
-#ggsave(gg.sha.seas.alltypes,file="./figures/gg.sha.seas.alltypes.pdf",width=8,height=4)
+#ggsave(gg.sha.site.alltypes,file="./figures/gg.sha.site.alltypes.png",width=8,height=4)
+#ggsave(gg.sha.seas.alltypes,file="./figures/gg.sha.seas.alltypes.png",width=8,height=4)
 
 
 ### Coral only
 
-gg.sha.coral.site <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=site))+
+gg.sha.coral.site.ss <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=site,group=site))+
   geom_boxplot(outlier.shape=NA)+
-  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
-  geom_jitter(alpha=0.5)+
-  ylab("Shannon index")+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+  scale_shape_manual(values=c(1,19))+
+  geom_point(position = position_jitterdodge(dodge.width=0.5, jitter.width=0.03),size=3, alpha=0.5,aes(shape=symbstate,group=symbstate))+
+  ylab("Shannon Index")+
   xlab("Site")+
   theme_cowplot()+
-  theme(legend.position="none")+
-  ggtitle("Coral")
+  ggtitle("Shannon Index (Coral)")+
+  guides(shape=guide_legend("Symbiotic State"),
+         color="none")
+
+gg.sha.coral.site.seas <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=site,group=site))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+  scale_shape_manual(values=c(8,17))+
+  geom_point(position = position_jitterdodge(dodge.width=0.5, jitter.width=0.02),size=3, alpha=0.5,aes(shape=season,group=season))+
+  ylab("Shannon Index")+
+  xlab("Site")+
+  theme_cowplot()+
+  ggtitle("Shannon Index (Coral)")+
+  guides(shape=guide_legend("Season"),
+         color="none")
 
 gg.sha.coral.symb <- ggplot(df.div.coral,aes(x=symbstate,y=Shannon,color=symbstate))+
   geom_boxplot(outlier.shape=NA)+
@@ -165,7 +184,8 @@ gg.sha.coral.ss.site <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate
   #theme(legend.position="none")
 
 
-#ggsave(gg.sha.coral.site,file="./figures/gg.sha.coral.site.pdf",width=8,height=4)
+#ggsave(gg.sha.coral.site.ss,file="./figures/gg.sha.coral.site.ss.png",width=8,height=4)
+#ggsave(gg.sha.coral.site.seas,file="./figures/gg.sha.coral.site.seas.png",width=8,height=4)
 #ggsave(gg.sha.coral.symb,file="./figures/gg.sha.coral.symb.pdf",width=8,height=4)
 #ggsave(gg.sha.coral.seas,file="./figures/gg.sha.coral.seas.pdf",width=8,height=4)
 #ggsave(gg.sha.coral.sd,file="./figures/gg.sha.coral.sd.pdf",width=8,height=4)
@@ -420,6 +440,215 @@ Tutorial from dada2 author [here](https://f1000research.com/articles/5-1492/v2)
 ```
 
 
+(I'm not running the following chunk every time, because only need to generate the file once)
+
+```{r fasta file generation, eval=FALSE}
+raw.otu  <- as.matrix(ps.less@otu_table)
+raw.taxa <- data.frame(ps.less@tax_table)
+rownames(raw.taxa)==colnames(raw.otu)
+ 
+colnames(raw.otu) <- raw.taxa$V8
+ids <- rownames(raw.taxa)
+
+path="~/oculina/diversity/analyze_asv_table/oculina16s_rev.less.fasta"
+uniquesToFasta(raw.otu, path, ids = ids, mode = "w", width = 20000)
+```
+
+
+Actual analysis part: 
+
+(I'm not running the following chunk every time, because only need to generate the files once)
+
+```{r phylo d, eval=FALSE}
+seqs <- getSequences("oculina16s_rev.less.fasta")
+names(seqs) <- seqs # This propagates to the tip labels of the tree
+saveRDS(seqs,file="phylo.seqs.less.rds")
+#also doing the same thing with a .fasta file post-trimming to see if it makes a difference:
+#seqs <- getSequences("mr16s_rev.cleanest.trimmed copy.fasta")
+#names(seqs) <- seqs # This propagates to the tip labels of the tree
+#saveRDS(seqs,file="phylo.seqs.rev.cleanest.trimmed.rds")
+```
+
+
+Doing this next part in the cluster because it takes forever
+
+```{bash terminal phylo things, eval=FALSE}
+##script phylo.R looks like this now:
+# library(dada2)
+# library(phangorn)
+# library(DECIPHER)
+#
+# seqs <- readRDS("./phylo.seqs.rev.cleanest.rds")
+# alignment <- AlignSeqs(DNAStringSet(seqs), anchor=NA)
+# phang.align <- phyDat(as(alignment, "matrix"), type="DNA")
+# dm <- dist.ml(phang.align)
+# treeNJ <- NJ(dm) # Note, tip order != sequence order
+# fit = pml(treeNJ, data=phang.align)
+#
+# ## negative edges length changed to 0!
+# 
+# fitGTR <- update(fit, k=4, inv=0.2)
+# fitGTR <- optim.pml(fitGTR, model="GTR", optInv=TRUE, optGamma=TRUE,
+#                     rearrangement = "stochastic", control = pml.control(trace = 0))
+# detach("package:phangorn", unload=TRUE)
+# saveRDS(fitGTR, file="./phylo.fitgtr.rev.cleanest.rds")
+
+### In terminal:
+#nano phylo.sh #to create and edit text file
+#phylo.sh looks like this: 
+  # #!/bin/bash
+  # #SBATCH -p general
+  # #SBATCH -t 1-
+  # #SBATCH -N 1
+  # #SBATCH -n 1
+  # #SBATCH --mem=8gb
+  # #SBATCH --output <phylo.fitgtr.less.rds>
+  
+  # module add r
+  # module add rstudio
+  
+  # Rscript phylo.R
+
+##saved output as: phylo.fitgtr.less.rds
+```
+
+Back in R
+```{r}
+#BiocManager::install("DESeq2")
+#BiocManager::install("genefilter")
+library(DESeq2)
+library(genefilter)
+#devtools::install_github('twbattaglia/btools')
+library(btools)
+setwd("~/oculina/diversity/analyze_asv_table")
+fitGTR <- readRDS("phylo.fitgtr.less.rds")
+
+#new phyloseq object:
+taxa.less <- data.frame(ps.less@tax_table)
+seqtab.less <- data.frame(ps.less@otu_table)
+taxa.less$sqs <- row.names(taxa.less) 
+taxa.less$sqs == colnames(seqtab.less)
+row.names(taxa.less) <- taxa.less$V8
+colnames(seqtab.less) <- taxa.less$V8
+row.names(taxa.less) == colnames(seqtab.less)
+taxa.less <- as.matrix(taxa.less)
+ps.less.tree <- phyloseq(otu_table(seqtab.less, taxa_are_rows = FALSE),
+                         sample_data(samdf),
+                         tax_table(taxa.less),
+                         phy_tree(fitGTR$tree))
+
+pd.div <- estimate_pd(ps.less.tree)
+row.names(df.div) <- df.div$id
+df.div.pd <- merge(df.div,pd.div,by=0)
+
+
+## saving diversity data frame ##
+#save & read back in as needed
+#write.csv(df.div.pd,file="oculina16s_diversity_less.csv") #saving
+#df.div <- read.csv("oculina16s_diversity_less.csv",row.names=1,header=TRUE) #reading back in
+
+```
+
+
+
+### Faith's D Plots {.tabset}
+
+#### Figures
+
+```{r faiths d}
+df.div.pd.coral <- subset(df.div.pd, type=="coral")
+
+gg.fd.site.alltypes <-ggplot(df.div.pd,aes(x=type,y=PD,color=type))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("darksalmon","paleturquoise3","chocolate4"))+
+  scale_x_discrete(labels=c("Coral","SW","Sed."))+
+  geom_jitter(alpha=0.5)+
+  ylab("Faith's D")+
+  xlab("Site")+
+  theme_cowplot()+
+  theme(legend.position="none")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+gg.fd.seas.alltypes <-ggplot(df.div.pd,aes(x=type,y=PD,color=type))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("darksalmon","paleturquoise3","chocolate4"))+
+  scale_x_discrete(labels=c("Coral","SW","Sed."))+
+  geom_jitter(alpha=0.5)+
+  ylab("Faith's D")+
+  labs(x=NULL)+
+  theme_cowplot()+ 
+  theme(legend.position="none")+
+  facet_wrap(~forcats::fct_relevel(season, "Summer","Fall"))
+
+#setwd("~/oculina/diversity")
+#ggsave(gg.fd.site.alltypes,file="./figures/gg.fd.site.alltypes.png",width=8,height=4)
+#ggsave(gg.fd.seas.alltypes,file="./figures/gg.fd.seas.alltypes.png",width=8,height=4)
+
+
+### Coral only
+
+gg.fd.coral.site <- ggplot(df.div.pd.coral,aes(x=site,y=PD,color=site))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
+  geom_jitter(alpha=0.5)+
+  ylab("Faith's D")+
+  xlab("Site")+
+  theme_cowplot()+
+  theme(legend.position="none")+
+  ggtitle("Coral")
+
+gg.fd.coral.symb <- ggplot(df.div.pd.coral,aes(x=symbstate,y=PD,color=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("lightcyan3","coral4"))+
+  geom_jitter(alpha=0.5)+
+  ylab("Faith's D")+
+  scale_x_discrete(name = NULL)+
+  theme_cowplot()+
+  theme(legend.position="none")+
+  ggtitle("Coral")
+
+gg.fd.coral.seas <- ggplot(df.div.pd.coral,aes(x=symbstate,y=PD,color=season))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"))+
+  #geom_jitter(alpha=0.5)+
+  ylab("Faith's D")+
+  xlab("Site")+
+  theme_cowplot()+
+  ggtitle("Coral")
+  #theme(legend.position="none")
+
+gg.fd.coral.sd <- ggplot(df.div.pd.coral,aes(x=density,y=PD,color=density))+
+  geom_point(size=3, alpha=0.8)+
+  scale_color_continuous(high = "#132B43", low = "#6DCDFB")+
+  theme_cowplot()+
+  xlab("Density")+
+  ylab("Faith's D")+
+  labs(color="Density")+
+ # theme(legend.position="none")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+gg.fd.coral.ss.site <- ggplot(df.div.pd.coral,aes(x=site,y=PD,color=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  scale_colour_manual(values=c("lightcyan3","coral4")) +
+  ylab("Faith's D")+
+  xlab("Site")+
+  labs(color = "Symbiotic State")+
+  theme_cowplot() +
+  scale_x_discrete(limits=c('NR','RI', 'CL'))+
+  ggtitle("Coral")
+  #theme(legend.position="none")
+
+
+#ggsave(gg.fd.coral.site,file="./figures/gg.fd.coral.site.png",width=8,height=4)
+#ggsave(gg.fd.coral.symb,file="./figures/gg.fd.coral.symb.png",width=8,height=4)
+#ggsave(gg.fd.coral.seas,file="./figures/gg.fd.coral.seas.png",width=8,height=4)
+#ggsave(gg.fd.coral.sd,file="./figures/gg.fd.coral.sd.png",width=8,height=4)
+#ggsave(gg.fd.coral.ss.site,file="./figures/gg.fd.coral.ss.site.png",width=8,height=4)
+
+```
+
+
 ## Playing with microshades
 ```{r microshades setup}
 #remotes::install_github("KarstensLab/microshades")
@@ -434,7 +663,7 @@ ps1 <- merge_samples(ps0, "fullname")
 ps.all <- transform_sample_counts(ps1, function(x) x / sum(x))
 
 # include other variables in ps.all (beyond just fullname)
-seqtab.cleanest <- read.csv("oculina16s_rev_seqtab.cleanest.csv",row.names=1)
+seqtab.cleanest <- read.csv("~/oculina/data/oculina16s_rev_seqtab.cleanest.csv",row.names=1)
 ps.cleanest <- phyloseq(otu_table(seqtab.cleanest, taxa_are_rows=FALSE), 
                     sample_data(samdf), 
                     tax_table(taxa2))
@@ -486,6 +715,7 @@ ps.coral.symbstate <- transform_sample_counts(ps1.coral.symbstate, function(x) x
 mdf.prep.less <- prep_mdf(ps.less, subgroup_level="Genus")
 mdf.prep <- prep_mdf(ps.all, subgroup_level="Genus")
 mdf.prep.less.allid <- prep_mdf(ps.less.allid, subgroup_level = "Genus")
+mdf.prep.coral <- prep_mdf(ps1.coral, subgroup_level="Genus")
 mdf.prep.less.type <- prep_mdf(ps.less.type, subgroup_level = "Family")
 mdf.prep.allid <- prep_mdf(ps.coral.allid, subgroup_level = "Family")
 mdf.prep.site <- prep_mdf(ps.coral.site, subgroup_level = "Family")
@@ -496,6 +726,7 @@ mdf.prep.symbstate <- prep_mdf(ps.coral.symbstate, subgroup_level = "Family")
 color.obj.less<- create_color_dfs(mdf.prep.less, group_level = "Phylum", subgroup_level = "Genus", cvd = TRUE)
 color.obj <- create_color_dfs(mdf.prep, group_level = "Phylum", subgroup_level = "Genus", cvd = TRUE)
 color.obj.less.allid <- create_color_dfs(mdf.prep.less.allid, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
+color.obj.coral <- create_color_dfs(mdf.prep.coral, group_level="Phylum", subgroup_level="Genus", cvd=TRUE)
 color.obj.less.type <- create_color_dfs(mdf.prep.less.type, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.allid <- create_color_dfs(mdf.prep, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
 color.obj.site <- create_color_dfs(mdf.prep.site, group_level = "Phylum", subgroup_level = "Family", cvd = TRUE)
@@ -510,9 +741,11 @@ mdf <- color.obj$mdf
 cdf <- color.obj$cdf
 mdf.less.allid <- color.obj.less$mdf #contains sample data and abundance info
 cdf.less.allid <- color.obj.less$cdf #contains color mapping info
+mdf.coral <- color.obj.coral$mdf
+cdf.coral <- color.obj.coral$sdf
 mdf.less.type <- color.obj.less.type$mdf 
 cdf.less.type <- color.obj.less.type$cdf 
-mdf.coral.allid <- color.obj$mdf.allid
+mdf.coral.allid <- coßlor.obj$mdf.allid
 cdf.coral.allid <- color.obj$cdf.allid
 mdf.coral.site <- color.obj.site$mdf
 cdf.coral.site <- color.obj.site$cdf
@@ -522,6 +755,38 @@ mdf.coral.symbstate <- color.obj.symbstate$mdf
 cdf.coral.symbstate <- color.obj.symbstate$cdf
 ```
 
+
+```{r facet wrap}
+# Use microshades function prep_mdf to agglomerate, normalize, and melt the phyloseq object
+mdf.prep.less <- prep_mdf(ps.less, subgroup_level="Genus")
+color.obj.less<- create_color_dfs(mdf.prep.less, group_level = "Phylum", subgroup_level = "Genus", cvd = TRUE)
+mdf.less <- color.obj.less$mdf
+cdf.less <- color.obj.less$cdf
+
+# remove current Sample column (currently a repeat of id), and then rename fullname = Sample
+#library(dplyr)
+mdf.less <- mdf.less %>%
+  select(-Sample) %>%
+  rename(Sample = fullname) %>%
+  rename(number = sample)
+
+new.sample.order <- reorder_samples_by(mdf.less, cdf.less, group_level = "Phylum", subgroup_level = "Genus", sink_abundant_groups = TRUE)
+
+mdf.new.sample.order <-new.sample.order$mdf.less
+cdf.new.sample.order <-new.sample.order$cdf.less
+
+plot.less <- plot_microshades(mdf.new.sample.order, cdf.new.sample.order, group_label = "Phylum Genus")
+
+ms.allsamples <- plot.less + 
+  theme(legend.key.size = unit(0.5, "cm"), text=element_text(size=8)) +
+  theme(axis.text.x = element_text(size= 6)) +
+  facet_grid(~type, scales = "free_x", space="free") +
+  theme (strip.text.x = element_text(size = 10))+
+  theme(axis.title=element_text(size=10))+
+  scale_y_continuous(labels = scales::percent, expand = expansion(0))
+  
+#ggsave(ms.allsamples,file="./figures/ms.allsamples.png",width=12,height=6)
+```
 
 ```{r microshades initial plots}
 plot1 <- plot_microshades(mdf, cdf, group_label = "Phylum Genus")
@@ -564,7 +829,7 @@ plot_2 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
 ```{r reorder samples by abundance of group levels only}
 # reorder_samples_by will change the order of samples based on an abundance of a specified subgroup taxonomy
 # The default subgroup_level is "Genus" 
-new.group.order <- reorder_samples_by(mdf.rare, cdf.rare, group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = TRUE)
+new.group.order <- reorder_samples_by(mdf.less, cdf.less, group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = TRUE)
 
 mdf.new.group.order <-new.group.order$mdf
 cdf.new.group.order <-new.group.order$cdf
@@ -575,6 +840,7 @@ plot_3 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
   theme(legend.key.size = unit(0.2, "cm"), text=element_text(size=10)) +
   theme(axis.text.x = element_text(size= 6))
 ```
+
 ```{r}
 # reorder_samples_by will change the order of samples based on Family an abundance of a group and reorder the Phylum to sink the most abundant groups
 reordered <- reorder_samples_by(mdf.rare, cdf.rare, order = "Other", group_level = "Phylum", subgroup_level = "Family",sink_abundant_groups=TRUE)
@@ -590,23 +856,6 @@ plot_3 + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
 ```
 
 
-```{r facet wrap}
-# remove current Sample column (currently a repeat of id), and then rename fullname = Sample
-#library(dplyr)
-mdf.less <- mdf.less %>%
-  select(-Sample) %>%
-  rename(Sample = fullname) %>%
-  rename(number = sample)
-
-plot.less <- plot_microshades(mdf.less, cdf.less, group_label = "Phylum Genus")
-
-plot.less + 
-  theme(legend.key.size = unit(0.5, "cm"), text=element_text(size=10)) +
-  theme(axis.text.x = element_text(size= 6)) +
-  facet_grid(~type, scales = "free_x", space="free") +
-  theme (strip.text.x = element_text(size = 10))
-  
-```
 
 
 
