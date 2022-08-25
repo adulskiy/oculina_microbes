@@ -172,6 +172,19 @@ glm.5 <- glm(Shannon ~ season*site*density, data=df.div.coral, family=quasipoiss
 
 #Issue: can't easily calculate AIC of quasi models (https://cran.r-project.org/web/packages/bbmle/vignettes/quasi.pdf)
 
+
+#trying with symbstate instead of density:
+
+glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=gaussian())
+glm.1 <- glm(Shannon ~ season+site+symbstate, data=df.div.coral, family=gaussian())
+glm.2 <- glm(Shannon ~ season+site*symbstate, data=df.div.coral, family=gaussian())
+glm.3 <- glm(Shannon ~ season*site+symbstate, data=df.div.coral, family=gaussian())
+glm.4 <- glm(Shannon ~ site+season*symbstate, data=df.div.coral, family=gaussian())
+glm.5 <- glm(Shannon ~ season*site*symbstate, data=df.div.coral, family=gaussian())
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.2 best AIC
+summary(glm.2)
 ```
 
 
@@ -212,7 +225,7 @@ qqPlot(df.div.coral$Observed) # discrete, not continuous
 shapiro.test(df.div.coral$Observed) #really sig/not normal
 ggdensity(df.div.coral$Observed) #right skewed
 
-
+#using poisson because counts; however, poisson is sensitive to assumption that mean is equal to variance; alternative is quasi-poisson or negative binomial
 glm.0 <- glm(Observed ~ 1, data=df.div.coral, family=poisson())
 glm.1 <- glm(Observed ~ season+site+density, data=df.div.coral, family=poisson())
 #summary(glm.1)
@@ -226,12 +239,44 @@ glm.5 <- glm(Observed ~ season*site*density, data=df.div.coral, family=poisson()
 #summary(glm.5)
 
 AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
-# all glms except null have same AIC, seems sus
-summary(glm.0) #so none of the variables are predictive of evenness?
+# glm.5 is best
+summary(glm.5) 
 
 #for glm.5:
 #Coefficients: (2 not defined because of singularities)
 #^^^why does this happen?! i think bc of CL...can I change CL to not be intercept?
+
+
+# trying negative binomial
+library(MASS)
+glm.0 <- glm.nb(Observed ~ 1, data=df.div.coral)
+glm.1 <- glm.nb(Observed ~ season+site+density, data=df.div.coral)
+#summary(glm.1)
+glm.2 <- glm.nb(Observed ~ season+site*density, data=df.div.coral)
+#summary(glm.2)
+glm.3 <- glm.nb(Observed ~ season*site+density, data=df.div.coral)
+#summary(glm.3)
+glm.4 <- glm.nb(Observed ~ site+season*density, data=df.div.coral)
+#summary(glm.4)
+glm.5 <- glm.nb(Observed ~ season*site*density, data=df.div.coral)
+#summary(glm.5)
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.5 best
+summary(glm.5)
+#                              Estimate Std. Error z value Pr(>|z|)    
+#(Intercept)                  5.628e+00  3.992e-01  14.099  < 2e-16 ***
+#seasonSummer                -4.553e-01  2.908e-01  -1.566 0.117439    
+#siteNR                      -2.112e+00  4.855e-01  -4.351 1.35e-05 ***
+#siteRI                      -5.848e-01  3.449e-01  -1.696 0.089948 .  
+#density                     -1.886e-07  5.272e-08  -3.578 0.000347 ***
+#seasonSummer:siteNR          1.521e+00  4.597e-01   3.309 0.000936 ***
+#seasonSummer:siteRI                 NA         NA      NA       NA    
+#seasonSummer:density         7.328e-08  4.319e-08   1.697 0.089752 .  
+#siteNR:density               3.343e-07  6.399e-08   5.224 1.75e-07 ***
+#siteRI:density               9.053e-08  3.325e-08   2.723 0.006476 ** 
+#seasonSummer:siteNR:density -1.338e-07  6.390e-08  -2.095 0.036214 *  
+#seasonSummer:siteRI:density         NA         NA      NA       NA   
 
 ```
 
@@ -241,24 +286,23 @@ qqPlot(df.div.coral$Simpson)
 shapiro.test(df.div.coral$Simpson) #not normally distributed
 ggdensity(df.div.coral$Simpson) #very left skewed
 
-
 #maybe should use gamma? https://stats.stackexchange.com/questions/190763/how-to-decide-which-glm-family-to-use
 
 
-glm.0 <- glm(Simpson ~ 1, data=df.div.coral, family=Gamma())
-glm.1 <- glm(Simpson ~ season+site+density, data=df.div.coral, family=Gamma())
+glm.0 <- glm(Simpson.log ~ 1, data=df.div.coral, family=Gamma())
+glm.1 <- glm(Simpson.log ~ season+site+density, data=df.div.coral, family=Gamma())
 #summary(glm.1)
-glm.2 <- glm(Simpson ~ season+site*density, data=df.div.coral, family=Gamma())
+glm.2 <- glm(Simpson.log ~ season+site*density, data=df.div.coral, family=Gamma())
 #summary(glm.2)
-glm.3 <- glm(Simpson ~ season*site+density, data=df.div.coral, family=Gamma())
+glm.3 <- glm(Simpson.log ~ season*site+density, data=df.div.coral, family=Gamma())
 #summary(glm.3)
-glm.4 <- glm(Simpson ~ site+season*density, data=df.div.coral, family=Gamma())
+glm.4 <- glm(Simpson.log ~ site+season*density, data=df.div.coral, family=Gamma())
 #summary(glm.4)
-glm.5 <- glm(Simpson ~ season*site*density, data=df.div.coral, family=Gamma())
+glm.5 <- glm(Simpson.log ~ season*site*density, data=df.div.coral, family=Gamma())
 #summary(glm.5)
 
 AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
-# null model best again for gaussian, glm.4 best for gamma but glm.0 very close
+# glm.4 is best, glm.0 close second
 summary(glm.4) #for gamma
 #                       Estimate Std. Error t value Pr(>|t|)    
 #(Intercept)           1.138e+00  4.941e-02  23.031   <2e-16 ***
@@ -293,21 +337,16 @@ glm.5 <- glm(InvSimpson ~ season*site*density, data=df.div.coral, family=Gamma()
 #summary(glm.5)
 
 AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
-# glm.5 best AIC
-summary(glm.5)
-#                              Estimate Std. Error t value Pr(>|t|)   
-#(Intercept)                 -8.164e-03  2.522e-02  -0.324  0.74810   
-#seasonSummer                 2.943e-02  1.917e-02   1.535  0.13371   
-#siteNR                       8.760e-02  3.964e-02   2.210  0.03375 * 
-#siteRI                       2.720e-02  2.404e-02   1.131  0.26565   
-#density                      1.258e-08  5.244e-09   2.398  0.02195 * 
-#seasonSummer:siteNR         -3.635e-02  4.204e-02  -0.865  0.39320   
-#seasonSummer:siteRI                 NA         NA      NA       NA   
-#seasonSummer:density        -1.561e-09  3.098e-09  -0.504  0.61744   
-#siteNR:density              -1.734e-08  5.926e-09  -2.926  0.00599 **
-#siteRI:density              -9.552e-09  4.550e-09  -2.099  0.04308 * 
-#seasonSummer:siteNR:density  2.196e-09  4.568e-09   0.481  0.63368   
-#seasonSummer:siteRI:density         NA         NA      NA       NA   
+# glm.2 best
+summary(glm.2)
+#                 Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)     1.110e-02  1.671e-02   0.664 0.510461    
+#seasonSummer    1.016e-02  7.965e-03   1.276 0.209730    
+#siteNR          5.823e-02  2.197e-02   2.650 0.011670 *  
+#siteRI          1.202e-02  1.708e-02   0.704 0.485868    
+#density         1.101e-08  3.793e-09   2.904 0.006115 ** 
+#siteNR:density -1.536e-08  4.052e-09  -3.790 0.000523 ***
+#siteRI:density -8.700e-09  3.985e-09  -2.183 0.035290 *   
 
 #Coefficients: (2 not defined because of singularities)
 #^^^Why?!

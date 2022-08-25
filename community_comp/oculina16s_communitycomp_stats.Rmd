@@ -34,10 +34,10 @@ Read in data
 
 ```{r read in data}
 setwd("~/oculina/data")
-samdf <- read.csv("oculina16s_sampledata_symdens.csv",header=TRUE)
-load("taxa2.Rdata")
+samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE)
+load("~/oculina/data/taxa2.Rdata")
 #load("ps.clean.Rdata")
-load("ps.less.Rdata")
+load("~/oculina/data/ps.less_rev.Rdata")
 #load("ps.rare.trim.Rdata")
 #load("ps.trim.Rdata")
 #ps.cleanest <- readRDS("phyloseq.cleanest.RDS")
@@ -104,15 +104,18 @@ ps.less.clr <- transform(ps.less, 'clr') #otu table: no longer counts, but rathe
 
 #load("~/oculina/data/ps.rare.rev.clr.Rdata")
 #subset coral
-ps.coral <- subset_samples(ps.less.clr,type=="coral")
+ps.coral.clr <- subset_samples(ps.less.clr,type=="coral")
 #ps.coral <- subset_samples(ps.less,type=="coral")
 
 
-ord.coral.clr <- ordinate(ps.coral, "RDA")
+ord.coral.clr <- ordinate(ps.coral.clr, "RDA")
 plot_scree(ord.coral.clr)+
   geom_bar(stat="identity",fill="blue")+
   labs(x = "\nAxis", y = "Proportion of Variance\n")
 
+
+#Applying PCA to CLR-transformed data will give us Aitchison distance-based ordinatinon
+#We can use PERMANOVA to test whether they cluster
 ```
 ```{r}
 #seq.coral <- data.frame(otu_table(ps.coral))
@@ -129,16 +132,48 @@ plot_scree(ord.clr)+
 head(ord.clr$CA$eig)
 sapply(ord.clr$CA$eig[1:5], function(x) x / sum(ord.clr$CA$eig))    
 
-#RDA without constraints is PCA…and we can generate the PCs using the phyloseq::ordinate function. A scree plot is then used to examine the proportion of total variation explained by each PC. Here we see that the first PC really stands out and then we have a gradual decline for the remaining components. You may hear people talk about looking for the “elbow” in the plot where the information plateaus to select the number of PCs to retain.
+#"RDA without constraints is PCA…and we can generate the PCs using the phyloseq::ordinate function. A scree plot is then used to examine the proportion of total variation explained by each PC. Here we see that the first PC really stands out and then we have a gradual decline for the remaining components. You may hear people talk about looking for the “elbow” in the plot where the information plateaus to select the number of PCs to retain."
+
+```
+```{r adonis types}
+seq.less <- data.frame(otu_table(ps.less.clr))
+dist.less <- vegdist(seq.less, method="euclidian")
+samdf.less <- data.frame(sample_data(ps.less.clr))
+row.names(samdf.less)==row.names(seq.less)
+
+adonis2(dist.less ~ type, data=samdf.less, permutations=999)
+#         Df SumOfSqs      R2      F Pr(>F)    
+#type      2    34137 0.11949 4.6139  0.001 ***
+#Residual 68   251556 0.88051                  
+#Total    70   285693 1.00000 
+
+adonis2(dist.less ~ type*season, data=samdf.less, permutations=999)
+#            Df SumOfSqs      R2      F Pr(>F)    
+#type         2    34137 0.11949 4.8378  0.001 ***
+#season       1     7553 0.02644 2.1409  0.001 ***
+#type:season  2    14676 0.05137 2.0799  0.001 ***
+#Residual    65   229326 0.80270                  
+#Total       70   285693 1.00000    
+
+adonis2(dist.less ~ type*site, data=samdf.less, permutations=999)
+#          Df SumOfSqs      R2      F Pr(>F)    
+#type       2    34137 0.11949 4.8287  0.001 ***
+#site       2    10020 0.03507 1.4174  0.002 ** 
+#type:site  4    22381 0.07834 1.5829  0.001 ***
+#Residual  62   219155 0.76710                  
+#Total     70   285693 1.00000  
+
+adonis2(dist.less ~ type*season*site, data=samdf.less, permutations=999)
+
 
 ```
 
 ```{r stats for coral (clr-transformed)}
 # need to do euclidian instead of bray for CLR transformed data...
 
-seq.coral <- data.frame(otu_table(ps.coral))
+seq.coral <- data.frame(otu_table(ps.coral.clr))
 dist.coral <- vegdist(seq.coral, method="euclidian")
-samdf.coral <- data.frame(sample_data(ps.coral))
+samdf.coral <- data.frame(sample_data(ps.coral.clr))
 row.names(samdf.coral)==row.names(seq.coral)
 
 
@@ -177,119 +212,63 @@ adonis2(dist.coral ~ site*symbstate, data=samdf.coral, permutations=999) #only s
 adonis2(dist.coral ~ season*symbstate, data=samdf.coral, permutations=999) #only season sig (***)
 
 adonis2(dist.coral ~ season*symbstate*site, data=samdf.coral, permutations=999) 
-#               Df SumOfSqs      R2      F Pr(>F)    
-#site            2     8045 0.06149 1.3775  0.001 ***
-#symbstate       1     2962 0.02264 1.0142  0.355    
-#site:symbstate  2     5946 0.04544 1.0179  0.375    
-#Residual       39   113894 0.87044                  
-#Total          44   130846 1.00000   
-
-# try with just NR and CL, as it turns out w/ density data that CL aposymbiotic corals are not so apo after all
+#                      Df SumOfSqs      R2      F Pr(>F)    
+#season                 1     5253 0.04014 1.8552  0.001 ***
+#symbstate              1     2929 0.02239 1.0346  0.265    
+#site                   2     7344 0.05613 1.2969  0.001 ***
+#season:symbstate       1     2904 0.02220 1.0258  0.393    
+#season:site            1     4129 0.03156 1.4585  0.002 ** 
+#symbstate:site         2     5951 0.04548 1.0509  0.217    
+#season:symbstate:site  1     3241 0.02477 1.1448  0.117    
+#Residual              35    99094 0.75734                  
+#Total                 44   130846 1.00000   
+# try with just NR and RI just to check
 ps.coral.noCL <- subset_samples(ps.coral,site %in% c("NR","RI"))
 seq.coral.noCL <- data.frame(otu_table(ps.coral.noCL))
-dist.coral.noCL <- vegdist(seq.coral.noCL)
+dist.coral.noCL <- vegdist(seq.coral.noCL, method="euclidian")
 samdf.coral.noCL <- data.frame(sample_data(ps.coral.noCL))
 row.names(samdf.coral.noCL)==row.names(seq.coral.noCL)
 adonis2(dist.coral.noCL ~ symbstate, data=samdf.coral.noCL, permutations=999) #not sig
-
-### OLD ADONIS ANALYSIS ###
-# Question: Are centroids significantly different from one another?
-# adonis needs to be done on distance matrix
-
-adonis2(dist.coral ~ site, data=samdf.coral, permutations=999)
-         
-
-adonis2(dist.coral ~ season, data=samdf.coral, permutations=999) 
-
-
-adonis2(dist.coral ~ symbstate, data=samdf.coral, permutations=999)
-
-
-# will look at site and season as main effects as well as their interaction term
-adonis2(dist.coral ~ site*season, data=samdf.coral, permutations=999)
-#            Df SumOfSqs      R2      F Pr(>F)    
-#site         2   1.5246 0.09979 2.2915  0.001 ***
-#season       1   0.7769 0.05085 2.3353  0.001 ***
-#site:season  1   0.6676 0.04369 2.0067  0.009 ** 
-#Residual    37  12.3089 0.80566                  
-#Total       41  15.2780 1.00000     
-
-# site * symbstate
-adonis2(dist.coral ~ site*symbstate, data=samdf.coral, permutations=999) #only site sig (***)
-
-# season * symbstate
-adonis2(dist.coral ~ season*symbstate, data=samdf.coral, permutations=999) #only season sig (***)
-
-adonis2(dist.coral ~ season*symbstate*site, data=samdf.coral, permutations=999) #only season sig (***)
-
-# try with just NR and CL, as it turns out w/ density data that CL aposymbiotic corals are not so apo after all
-ps.coral.noCL <- subset_samples(ps.coral,site %in% c("NR","RI"))
-seq.coral.noCL <- data.frame(otu_table(ps.coral.noCL))
-dist.coral.noCL <- vegdist(seq.coral.noCL)
-samdf.coral.noCL <- data.frame(sample_data(ps.coral.noCL))
-row.names(samdf.coral.noCL)==row.names(seq.coral.noCL)
-adonis2(dist.coral.noCL ~ symbstate, data=samdf.coral.noCL, permutations=999) #not sig
-
-
 
 ### BETADISPER ###
 # If you have uneven variation in your data, adonis might not be effective -- should check for variation in dispersion using betadisper
+
 # CORAL - SITE
 bet.all <- betadisper(dist.coral,samdf.coral$site) #Betadisper calculates the average distance of group members to the group centroid in multivariate space (generated by a distance matrix). ANOVA/Permutest then tests whether distances are significantly different between groups.
-    
-    #Average distance to median:
-    #    CL     NR     RI 
-    #0.5076 0.5630 0.5972 
+bet.all
+#Average distance to median:
+#   CL    NR    RI 
+#43.23 54.10 51.07 
 
 #anova(bet.all)
 plot(bet.all) 
-permutest(bet.all, pairwise = TRUE, permutations = 999) 
-    #Response: distances
-      #          Df   Sum Sq   Mean Sq      F N.Perm Pr(>F)  
-      #Groups     2 0.049253 0.0246264 3.3667    999  0.046 *
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
 
 # CORAL - SEASON
 bet.all <- betadisper(dist.coral,samdf.coral$season)
 plot(bet.all)
-permutest(bet.all, pairwise = TRUE, permutations = 999) #not sig (p = 0.757)
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
 
 # CORAL - SYMB STATE
 bet.all <- betadisper(dist.coral,samdf.coral$symbstate)
 plot(bet.all)
-permutest(bet.all, pairwise = TRUE, permutations = 999) #not sig (p = 0.197)
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
 
 # Excluding CL
 bet.all <- betadisper(dist.coral.noCL,samdf.coral.noCL$symbstate)
 plot(bet.all)
-permutest(bet.all, pairwise = TRUE, permutations = 999) #not sig
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
 
 ```
 
 
-```{r adonis and betadisper with ps.rare.new (includes some new symb state categorizations)}
-ps.rare.new.clr <- transform(ps.rare.new, 'clr')
-ps.rn.coral <- subset_samples(ps.rare.new, type=="coral")
 
-seq.coral.rn <- data.frame(otu_table(ps.rn.coral))
-dist.coral.rn <- vegdist(seq.coral.rn)
-samdf.coral.rn <- data.frame(sample_data(ps.rn.coral))
-row.names(samdf.coral.rn)==row.names(seq.coral.rn)
+```{r plot heatmap}
+ps.coral.pt <- prune_taxa(names(sort(taxa_sums(ps.coral),TRUE)[1:300]), ps.coral)
+plot_heatmap(ps.coral.pt)
 
-
-### ADONIS ###
-# Question: Are centroids significantly different from one another?
-# adonis needs to be done on distance matrix
-
-adonis2(dist.coral.rn ~ symbstate, data=samdf.coral.rn, permutations=999) #not sig
-
-# site * symbstate
-adonis2(dist.coral.rn ~ site*symbstate, data=samdf.coral.rn, permutations=999) #only site sig (***)
-
-# season * symbstate
-adonis2(dist.coral.rn ~ season*symbstate, data=samdf.coral.rn, permutations=999) #only season sig (***)
 
 ```
-
 
 
 ```{r bubble plot}

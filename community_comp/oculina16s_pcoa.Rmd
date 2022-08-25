@@ -116,7 +116,7 @@ pcoa.coral.ss.all <- plot_ordination(ps.coral,ordinate(ps.coral,"PCoA", "bray"),
   ggtitle("Rarefied (Coral)")+
   facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
 
-pcoa.alltypes <- plot_ordination(ps.rare,ordinate(ps.rare,"PCoA", "bray"),color="type", shape="type")+
+pcoa.alltypes <- plot_ordination(ps.less,ordinate(ps.less,"PCoA", "bray"),color="type", shape="type")+
   stat_ellipse()+
   theme_cowplot()+
   scale_color_manual(name="Type",values=c("bisque2","paleturquoise3","chocolate4"))+
@@ -134,13 +134,13 @@ pcoa.coral.sd <- plot_ordination(ps.coral, ordinate(ps.coral,"PCoA", "bray"), co
  # scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
   ggtitle("Rarefied (Coral)")
 
-#ggsave(pcoa.coral.site,file="./figures/pcoa.coral.site.pdf",width=8,height=4)
-#ggsave(pcoa.coral.season,file="./figures/pcoa.coral.season.pdf",width=8,height=4)
-#ggsave(pcoa.coral.ss,file="./figures/pcoa.coral.ss.pdf",width=8,height=4)
-#ggsave(pcoa.coral.season.all,file="./figures/pcoa.coral.season.all.pdf",width=8,height=4)
-#ggsave(pcoa.coral.ss.all,file="./figures/pcoa.coral.ss.all.pdf",width=9,height=5)
-#ggsave(pcoa.alltypes,file="./figures/pcoa.alltypes.pdf",width=9,height=5)
-#ggsave(pcoa.coral.sd,file="./figures/pcoa.coral.sd.pdf",width=9,height=5)
+#ggsave(pcoa.coral.site,file="./figures/raw/pcoa.coral.site.png",width=8,height=4)
+#ggsave(pcoa.coral.season,file="./figures/raw/pcoa.coral.season.png",width=8,height=4)
+#ggsave(pcoa.coral.ss,file="./figures/raw/pcoa.coral.ss.pdf",width=8,height=4)
+#ggsave(pcoa.coral.season.all,file="./figures/raw/pcoa.coral.season.all.png",width=8,height=4)
+#ggsave(pcoa.coral.ss.all,file="./figures/raw/pcoa.coral.ss.all.png",width=9,height=5)
+#ggsave(pcoa.alltypes,file="./figures/raw/pcoa.alltypes.png",width=9,height=5)
+#ggsave(pcoa.coral.sd,file="./figures/raw/pcoa.coral.sd.png",width=9,height=5)
 
 ```
 
