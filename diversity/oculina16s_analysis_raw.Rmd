@@ -136,7 +136,9 @@ tab_model(glm.1) #makes a nice looking table
     # Simpson - measures probability of resampling the same species on two consecutive draws with replacement
 
 df.div.coral$season <- as.factor(df.div.coral$season)
+df.div.coral$season <- relevel(df.div.coral$season, ref="Summer")
 df.div.coral$site <- as.factor(df.div.coral$site)
+df.div.coral$site <- relevel(df.div.coral$site, ref="NR")
 df.div.coral$density <- as.numeric(df.div.coral$density)
 str(df.div.coral)
 
@@ -158,22 +160,23 @@ AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
 #glm.2 best AIC, glm.5 very close
 summary(glm.2)
 #                 Estimate Std. Error t value Pr(>|t|)    
-#(Intercept)     4.063e+00  4.378e-01   9.281 2.61e-11 ***
-#seasonSummer   -2.671e-01  2.272e-01  -1.175   0.2472    
-#siteNR         -8.518e-01  4.506e-01  -1.890   0.0664 .  
-#siteRI         -2.008e-01  4.430e-01  -0.453   0.6528    
-#density        -1.097e-07  4.068e-08  -2.696   0.0104 *  
-#siteNR:density  2.302e-07  5.150e-08   4.470 6.85e-05 ***
-#siteRI:density  8.413e-08  4.402e-08   1.911   0.0636 . 
-
+#(Intercept)     2.945e+00  2.510e-01  11.732 3.37e-14 ***
+#seasonFall      2.671e-01  2.272e-01   1.175 0.247197    
+#siteCL          8.518e-01  4.506e-01   1.890 0.066364 .  
+#siteRI          6.510e-01  3.028e-01   2.150 0.038013 *  
+#density         1.205e-07  3.159e-08   3.816 0.000486 ***
+#siteCL:density -2.302e-07  5.150e-08  -4.470 6.85e-05 ***
+#siteRI:density -1.461e-07  3.568e-08  -4.094 0.000213 ***
 
 1-pchisq(29.785-15.253, 44-38)
 #0.0242263 cool
 
 #setwd("~/oculina/diversity/stats")
+tab_model(glm.2)
 tab_model(glm.2, file="./stats/sha.coral.glm.gauss.html")
 #library(webshot)
 webshot("./stats/sha.coral.glm.gauss.html", "./stats/sha.coral.glm.gauss.png")
+
 
 # This paper (https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0224060&type=printable) looked at Shannon diveristy using GLM with log link function and Quasi-Poisson distribution - trying below
 glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=quasipoisson())
