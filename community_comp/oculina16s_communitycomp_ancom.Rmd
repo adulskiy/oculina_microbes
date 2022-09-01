@@ -32,13 +32,13 @@ source("ancom.R")
 # shouldn't use rarefied data according to authors
 # remove rows from ps.cleanest for unrarerified data
 
-load("~/oculina/data/ps.clean.rev.Rdata")
+load("~/oculina/data/ps.less_rev.Rdata")
 
 #subset coral
-ps.cleanest.new.coral <- subset_samples(ps.cleanest.new,type=="coral")
-otu_data_unt <- data.frame(ps.cleanest.new.coral@otu_table)
+ps.less.coral <- subset_samples(ps.less,type=="coral")
+otu_data_unt <- data.frame(ps.less.coral@otu_table)
 otu_data<- data.frame(t(otu_data_unt))
-meta_data = data.frame(ps.cleanest.new.coral@sam_data)
+meta_data = data.frame(ps.less.coral@sam_data)
 meta_data = meta_data %>% rename(Sample.ID = id)
 # Step 1: Data preprocessing
 feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
@@ -54,7 +54,7 @@ adj_formula = NULL; rand_formula = NULL
 res.ss = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
             alpha, adj_formula, rand_formula)
 #setwd("~/oculina/community_comp/ancom")
-#saveRDS(res.ss, file="ancom.res.ss.nonnest.RDS")
+#saveRDS(res.ss, file="ancom.res.ss.RDS")
 
 # Step 3: Volcano Plot
 # Number of taxa except structural zeros
@@ -64,13 +64,13 @@ cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_ta
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
 dat_ann = data.frame(x = min(res.ss$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-fig = res.ss$fig +  
+ancom.fig.ss = res.ss$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig  #0 W statistic for symb state?
+ancom.fig.ss  #0 W statistic for symb state?
 
-
+#ggsave(ancom.fig.ss, file="./ancom/ancom.fig.ss.png")
 #using new categorizations makes no difference for symbstate analysis
 ```
 
@@ -89,15 +89,16 @@ cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_ta
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
 dat_ann = data.frame(x = min(res.season.all$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-fig = res.season.all$fig +  
+ancom.fig.seas.coral = res.season.all$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig #8 taxa above 0.7
+ancom.fig.seas.coral #8 taxa above 0.7
+#ggsave(ancom.fig.seas.coral, file="./ancom/ancom.fig.seas.coral.png")
+
 ```
 
 ```{r ancom coral site}
-
 #site
 main_var = "site"; p_adj_method = "BH"; alpha = 0.05
 adj_formula = NULL; rand_formula = NULL
@@ -111,11 +112,12 @@ cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_ta
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
 dat_ann = data.frame(x = min(res.site$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-fig = res.site$fig +  
+ancom.fig.site.coral = res.site$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig 
+ancom.fig.site.coral 
+#ggsave(ancom.fig.site.coral, file="./ancom/ancom.fig.site.coral.png")
 #fig is comparing NR and RI to CL; two taxa for each above 0.7
 ```
 
@@ -158,11 +160,13 @@ cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_ta
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
 dat_ann = data.frame(x = min(res.ss.NR$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-fig = res.ss.NR$fig +  
+ancom.fig.ss.NR = res.ss.NR$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig #only one value above 0? weird
+ancom.fig.ss.NR #only one value above 0? weird
+#ggsave(ancom.fig.ss.NR, file="./ancom/ancom.fig.ss.NR.png")
+
 ```
 
 
@@ -181,12 +185,14 @@ n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 
 cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
-dat_ann = data.frame(x = min(res.ss.NR$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-fig = res.season.NR$fig +  
+dat_ann = data.frame(x = min(res.season.NR$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+ancom.fig.seas.coral.NR = res.season.NR$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig #a few above zero
+ancom.fig.seas.coral.NR #a few above zero
+#ggsave(ancom.fig.seas.coral.NR, file="./ancom/ancom.fig.seas.coral.NR.png")
+
 ```
 
 ### RI
@@ -220,11 +226,13 @@ cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_ta
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
 dat_ann = data.frame(x = min(res.ss.RI$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-fig = res.ss.RI$fig +  
+ancom.fig.ss.RI = res.ss.RI$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig #all zero
+ancom.fig.ss.RI #all zero
+#ggsave(ancom.fig.ss.RI, file="./ancom/ancom.fig.ss.RI.png")
+
 ```
 
 ```{r ancom RI season, eval=FALSE}
@@ -243,11 +251,13 @@ cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_ta
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
 dat_ann = data.frame(x = min(res.season.RI$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-fig = res.season.RI$fig +  
+ancom.fig.seas.coral.RI = res.season.RI$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig #some sig
+ancom.fig.seas.coral.RI #some sig
+#ggsave(ancom.fig.seas.coral.RI, file="./ancom/ancom.fig.seas.coral.RI.png")
+
 ```
 
 ```{r ancom CL symb state, eval=FALSE}
@@ -255,43 +265,6 @@ ps.less.coral.CL <- subset_samples(ps.less.coral,site=="CL")
 otu_data_unt <- data.frame(ps.less.coral.CL@otu_table)
 otu_data<- data.frame(t(otu_data_unt))
 meta_data = data.frame(ps.less.coral.CL@sam_data)
-meta_data = meta_data %>% rename(Sample.ID = id)
-# Step 1: Data preprocessing
-feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
-out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE
-prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
-                                   out_cut, zero_cut, lib_cut, neg_lb)
-feature_table = prepro$feature_table # Preprocessed feature table
-meta_data = prepro$meta_data # Preprocessed metadata
-struc_zero = prepro$structure_zeros # Structural zero info
-###symb state
-# Step 2: ANCOM
-main_var = "symbstate"; p_adj_method = "BH"; alpha = 0.05
-adj_formula = NULL; rand_formula = NULL
-res.ss.CL = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
-            alpha, adj_formula, rand_formula)
-#saveRDS(res.ss.RI,file="ancom.res.ss.RI.RDS")
-# Step 3: Volcano Plot
-# Number of taxa except structural zeros
-n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
-# Cutoff values for declaring differentially abundant taxa
-cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
-names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
-# Annotation data
-dat_ann = data.frame(x = min(res.ss.RI$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-fig = res.ss.RI$fig +  
-  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
-  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
-            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig #all zero
-```
-
-### CL
-```{r ancom CL, eval=FALSE}
-ps.clean.coral.CL <- subset_samples(ps.clean.coral,site=="CL")
-otu_data_unt <- data.frame(ps.clean.coral.CL@otu_table)
-otu_data<- data.frame(t(otu_data_unt))
-meta_data = data.frame(ps.clean.coral.CL@sam_data)
 meta_data = meta_data %>% rename(Sample.ID = id)
 # Step 1: Data preprocessing
 feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
@@ -316,12 +289,50 @@ cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_ta
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
 dat_ann = data.frame(x = min(res.ss.CL$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-fig = res.ss.CL$fig +  
+ancom.fig.ss.CL = res.ss.CL$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-fig #all zero
+ancom.fig.ss.CL #all zero
+#ggsave(ancom.fig.ss.CL, file="./ancom/ancom.fig.ss.CL.png")
+
 ```
+
+```{r ancom all types (coral, sw, sed)}
+otu_data_unt <- data.frame(ps.less@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.less@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+# Step 2: ANCOM
+main_var = "type"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula =  "~ 1 | site" #not sure if this is right
+res.site.types = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+#saveRDS(res.site.types,file="res.site.types.RDS")
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.ss.CL$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+ancom.fig.ss.CL = res.ss.CL$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+ancom.fig.ss.CL #all zero
+#ggsave(ancom.fig.ss.CL, file="./ancom/ancom.fig.ss.CL.png")
+```
+
 
 ## Synthesizing ANCOM results
 
@@ -336,7 +347,6 @@ res.ss.RI <- readRDS("./ancom/ancom.res.ss.RI.RDS")
 res.season.NR <- readRDS("./ancom/ancom.res.season.NR.RDS")
 res.season.RI <- readRDS("./ancom/ancom.res.season.RI.RDS")
 ```
-```
 
 Which ones are 'significant'
 
@@ -347,21 +357,64 @@ ss.out.sig <- ss.out[ss.out$detected_0.6==TRUE,]
 ss.out.sig #0
 NR.ss.out <- res.ss.NR$out
 NR.ss.out.sig <- NR.ss.out[NR.ss.out$detected_0.6==TRUE,] #0
+NR.ss.out.sig
 RI.ss.out <- res.ss.RI$out
 RI.ss.out.sig <- RI.ss.out[RI.ss.out$detected_0.6==TRUE,] #0
+RI.ss.out.sig
 
 #season
 season.out <- res.season$out
 season.out.sig <- season.out[season.out$detected_0.6==TRUE,]
-season.out.sig #9
+season.out.sig #9 sig
 NR.season.out <- res.season.NR$out
-NR.season.out.sig <- NR.season.out[NR.season.out$detected_0.6==TRUE,] #8
+NR.season.out.sig <- NR.season.out[NR.season.out$detected_0.6==TRUE,] 
+NR.season.out.sig #8
 RI.season.out <- res.season.RI$out
-RI.season.out.sig <- RI.season.out[RI.season.out$detected_0.6==TRUE,] #4
-
+RI.season.out.sig <- RI.season.out[RI.season.out$detected_0.6==TRUE,]
+RI.season.out.sig #5
 #site
 site.out <- res.site$out
 site.out.sig <- site.out[site.out$detected_0.6==TRUE,]
 site.out.sig #3
+
+```
+
+
+Subset the sig ones in phyloseq
+
+```{r}
+want.site <- c(site.out.sig$taxa_id)
+want.seas <- c(season.out.sig$taxa_id)
+want.NR.seas <- c(NR.season.out.sig$taxa_id)
+want.RI.seas <- c(RI.season.out.sig$taxa_id)
+
+want <- c(want.site,want.seas,want.NR.seas,want.RI.seas)
+ps.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want)
+
+#reorder sites
+
+sig.genus.abun.site <- plot_bar(ps.sig.taxa,x="site",y="Abundance",fill="Genus")+
+  facet_wrap(~Genus,scales="free")
+sig.genus.abun.site$data$site <- factor(sig.genus.abun.site$data$site, levels = c("NR","RI","CL"))
+print(sig.genus.abun.site)
+
+sig.fam.abun.site <- plot_bar(ps.sig.taxa,x="site",y="Abundance",fill="Family")+
+  facet_wrap(~Family,scales="free")
+sig.fam.abun.site$data$site <- factor(sig.fam.abun.site$data$site, levels = c("NR","RI","CL"))
+print(sig.fam.abun.site)
+
+sig.phyl.abun.site <- plot_bar(ps.sig.taxa,x="site",y="Abundance",fill="Phylum")+
+  facet_wrap(~Phylum,scales="free")
+sig.phyl.abun.site$data$site <- factor(sig.phyl.abun.site$data$site, levels = c("NR","RI","CL"))
+print(sig.phyl.abun.site)
+
+sig.genus.abun.seas <- plot_bar(ps.sig.taxa,x="season",y="Abundance",fill="Genus")+
+  facet_wrap(~Genus,scales="free")
+sig.genus.abun.seas$data$site <- factor(sig.genus.abun.seas$data$season, levels = c("Summer","Fall"))
+print(sig.genus.abun.seas)
+
+#ggsave(sig.genus.abun.site, file="./ancom/sig.genus.abun.site.png", width=11)
+#ggsave(sig.phyl.abun.site, file="./ancom/sig.phyl.abun.site.png", width=11)
+#ggsave(sig.genus.abun.seas, file="./ancom/sig.genus.abun.seas.png",width=11)
 
 ```

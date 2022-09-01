@@ -25,6 +25,8 @@ library(car)
 library(ggpubr)
 library(vegan)
 library(dada2)
+library(ggpmisc)
+
 ```
 
 ## Read in data
@@ -275,6 +277,57 @@ gg.shannon.fall <- ggplot(df.div.fall, aes(x=site,y=Shannon,color=type))+
 plot_grid(gg.shannon.summer, gg.shannon.fall, axis="bt",align="hv")
 ```
 
+
+### Inv Simpson
+
+```{r}
+gg.invsim.coral.site.seas <- ggplot(df.div.coral,aes(x=site,y=InvSimpson,color=site,group=site))+
+  geom_boxplot(outlier.shape=NA)+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+  scale_shape_manual(values=c(8,17))+
+  geom_point(position = position_jitterdodge(dodge.width=0.5, jitter.width=0.02),size=3, alpha=0.5,aes(shape=season,group=season))+
+  ylab("Inverse Simpson Index")+
+  xlab("Site")+
+  theme_cowplot()+
+  ggtitle("Inverse Simpson (Coral)")+
+  guides(shape=guide_legend("Season"),
+         color="none")
+
+gg.invsim.coral.ss.site <- ggplot(df.div.coral,aes(x=site,y=InvSimpson,color=symbstate))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  scale_colour_manual(values=c("lightcyan3","coral4")) +
+  ylab("Inverse Simpson Index")+
+  xlab("Site")+
+  labs(color = "Symbiotic State")+
+  theme_cowplot() +
+  scale_x_discrete(limits=c('NR','RI', 'CL'))+
+  ggtitle("Inverse Simpson (Coral)")
+  #theme(legend.position="none")
+
+
+gg.invsim.coral.sd <- ggplot(df.div.coral,aes(x=density,y=InvSimpson, color=site))+
+  geom_point(size=3, aes(shape=symbstate))+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+  scale_shape_manual(values=c(1, 19))+
+  theme_cowplot()+
+  xlab("Density (cells/cm2)")+
+  ylab("Inverse Simpson index")+
+  labs(shape="Symbiotic state",color="Site")+
+ # theme(legend.position="none")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")+
+  ggtitle("Inverse Simpson (Coral)")+
+    stat_poly_eq(label.x = "right")
+
+
+
+#ggsave(gg.invsim.coral.site.seas,file="./figures/gg.invsim.coral.site.seas.png",width=8,height=4)
+#ggsave(gg.invsim.coral.ss.site,file="./figures/gg.invsim.coral.ss.site.png",width=8,height=4)
+#ggsave(gg.invsim.coral.sd,file="./figures/gg.invsim.coral.sd.png",width=8,height=4)
+
+```
+
 ### Simpson
 
 ```{r simpson coral}
@@ -364,6 +417,23 @@ gg.sim.coral.ss.site <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate
 
 ```
 
+### Evenness
+```{r}
+gg.even.coral.sd <- ggplot(df.div.coral,aes(x=density,y=even, color=site))+
+  geom_point(size=3, aes(shape=symbstate))+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+  scale_shape_manual(values=c(1, 19))+
+  theme_cowplot()+
+  xlab("Density (cells/cm2)")+
+  ylab("Evenness")+
+  labs(shape="Symbiotic state",color="Site")+
+ # theme(legend.position="none")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")+
+  ggtitle("Evenness (Coral)")+
+    stat_poly_eq(label.x = "right")
+
+```
 
 ```{r richness coral}
 
@@ -546,6 +616,7 @@ gg.even.coral.ss.site <- ggplot(df.div.coral,aes(x=site,y=even,color=symbstate))
 #ggsave(gg.even.coral.sd,file="./figures/gg.even.coral.sd.pdf",width=8,height=4)
 #ggsave(gg.even.coral.ss.site,file="./figures/gg.even.coral.ss.site.pdf",width=8,height=4)
 ```
+
 
 ## Phylogenetic diversity (Faith's D)
 
@@ -857,6 +928,44 @@ ms.coral.site <- plot.coral +
 
 ms.coral.site
 #ggsave(ms.coral.site,file="./figures/ms.coral.site.png",width=12,height=6)
+```
+
+```{r microshades by all_id}
+ps_glom.less <- tax_glom(ps.less, "Genus")
+ps0.less <- transform_sample_counts(ps_glom.less, function(x) x / sum(x))
+ps1.less <- merge_samples(ps0.less, "all_id")
+ps.less.allid <- transform_sample_counts(ps1.less, function(x) x / sum(x))
+
+
+# Use microshades function prep_mdf to agglomerate, normalize, and melt the phyloseq object
+mdf.prep.allid <- prep_mdf(ps.less.allid, subgroup_level="Genus")
+
+# Create a color object for the specified data
+color.obj.allid<- create_color_dfs(mdf.prep.allid, group_level = "Phylum", subgroup_level = "Genus", cvd = TRUE)
+
+# Extract
+mdf.allid <- color.obj.allid$mdf
+cdf.allid <- color.obj.allid$cdf
+
+#sink abundant groups
+new.sample.order <- reorder_samples_by(mdf.allid, cdf.allid, group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = TRUE)
+
+mdf.new.sample.order <-new.sample.order$mdf
+cdf.new.sample.order <-new.sample.order$cdf
+
+
+plot.allid <- plot_microshades(mdf.new.sample.order, cdf.new.sample.order, group_label = "Phylum Family")
+
+
+ms.allid <- plot.allid + 
+  theme(legend.key.size = unit(0.5, "cm"), text=element_text(size=8)) +
+  theme(axis.text.x = element_text(size= 6)) +
+  theme (strip.text.x = element_text(size = 10))+
+  theme(axis.title=element_text(size=10))+
+  scale_y_continuous(labels = scales::percent, expand = expansion(0))
+
+#ggsave(ms.allid,file="./figures/ms.allid.png",width=12,height=6)
+
 ```
 
 ```{r microshades initial plots}
