@@ -22,6 +22,9 @@ library(car)
 library(ggpubr)
 library(vegan)
 library(dada2)
+library(stats)
+library(MuMIn)
+library(sjPlot)
 ```
 
 
@@ -95,9 +98,10 @@ df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
 ### GLMS - Alpha Diversity Indices
 
 ```{r compare types (coral, sed, sw)}
-library(stats)
-#install.packages("MuMIn")
-library(MuMIn)
+df.div$season <- as.factor(df.div$season)
+df.div$site <- as.factor(df.div$site)
+df.div$type <- as.factor(df.div$type)
+str(df.div)
 
 glm.0 <- glm(Shannon ~ 1, data=df.div, family=gaussian())
 glm.1 <- glm(Shannon ~ type, data=df.div, family=gaussian)
@@ -110,11 +114,18 @@ AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
 #glm.1 is best model
 summary(glm.1)
 #             Estimate Std. Error t value Pr(>|t|)    
-#(Intercept)    3.5051     0.1202  29.157  < 2e-16 ***
-#typeseawater   0.2256     0.2473   0.912    0.365    
-#typesediment   1.5608     0.2550   6.120  6.3e-08 ***
+#(Intercept)    3.4760     0.1223  28.424  < 2e-16 ***
+#typeseawater   0.3132     0.2583   1.213    0.229    
+#typesediment   1.6119     0.2583   6.240 3.22e-08 ***
 
-#looks like seawater is not significantly different from coral, but sediment is very different
+#calc diff in chi square statistics for null model and the model with independent variances (deviances) and dif in df
+1-pchisq(71.991-45.761, 70-68)
+#2.014781e-06 
+#reject null hypothesis that there is no different b/w null and model with variables
+
+tab_model(glm.1) #makes a nice looking table
+
+
 ```
 
 ```{r shannon glm coral}
@@ -156,6 +167,13 @@ summary(glm.2)
 #siteRI:density  8.413e-08  4.402e-08   1.911   0.0636 . 
 
 
+1-pchisq(29.785-15.253, 44-38)
+#0.0242263 cool
+
+#setwd("~/oculina/diversity/stats")
+tab_model(glm.2, file="./stats/sha.coral.glm.gauss.html")
+#library(webshot)
+webshot("./stats/sha.coral.glm.gauss.html", "./stats/sha.coral.glm.gauss.png")
 
 # This paper (https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0224060&type=printable) looked at Shannon diveristy using GLM with log link function and Quasi-Poisson distribution - trying below
 glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=quasipoisson())
