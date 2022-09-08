@@ -3,6 +3,8 @@ title: "oculina16s_communitycomp_ancom"
 author: "Ana Dulskiy"
 date: "8/16/2022"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -417,4 +419,104 @@ print(sig.genus.abun.seas)
 #ggsave(sig.phyl.abun.site, file="./ancom/sig.phyl.abun.site.png", width=11)
 #ggsave(sig.genus.abun.seas, file="./ancom/sig.genus.abun.seas.png",width=11)
 
+```
+
+# ANCOM heat map attempts
+
+Heat map attempts
+
+```{r}
+library("microbiomeutilities")
+library("viridis")
+ps.sig.mnw <- subset_samples(ps.sig.taxa,site=="MNW")
+ps.sig.mnw.sz <- merge_samples(ps.sig.mnw,"site_zone")
+ps.sig.mnw.sz@sam_data$zone <- c("A","B")
+heat.sig.mnw <- plot_taxa_heatmap(ps.sig.mnw.sz,
+  subset.top=14,                               
+  VariableA = "zone",
+  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
+  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=F,
+  cluster_rows=F
+)
+#pdf: 3 x 4 in
+ps.sig.mse <- subset_samples(ps.sig.taxa,site=="MSE")
+ps.sig.mse.sz <- merge_samples(ps.sig.mse,"site_zone")
+ps.sig.mse.sz@sam_data$zone <- c("A","B")
+heat.sig.mse <- plot_taxa_heatmap(ps.sig.mse.sz,
+  subset.top=14,                               
+  VariableA = "zone",
+  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
+  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=F,
+  cluster_rows=F
+)
+ps.sig.tnw <- subset_samples(ps.sig.taxa,site=="TNW")
+ps.sig.tnw.sz <- merge_samples(ps.sig.tnw,"site_zone")
+ps.sig.tnw.sz@sam_data$zone <- c("A","B")
+heat.sig.tnw <- plot_taxa_heatmap(ps.sig.tnw.sz,
+  subset.top=14,                               
+  VariableA = "zone",
+  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
+  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=F,
+  cluster_rows=F
+)
+```
+
+
+# Heat maps!
+
+```{r}
+#devtools::install_github("microsud/microbiomeutilities")
+library("microbiomeutilities")
+#package doesn't like the sq level
+#setwd("~/oculina/data")
+#load("~/oculina/data/ps.less_rev.Rdata")
+samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv")
+#setwd("~/oculina/community_comp")
+taxa.tab <- as.data.frame(ps.less@tax_table)
+taxa.tab.nosq <- as.matrix(taxa.tab[,1:7])
+seq.less.tab <- as.data.frame(ps.less@otu_table)
+rownames(samdf) <- samdf$id
+ps.less.nosq <- phyloseq(otu_table(seq.less.tab, taxa_are_rows=FALSE), 
+                         sample_data(samdf), 
+                         tax_table(taxa.tab.nosq))
+library(RColorBrewer)
+heat.sample <- plot_taxa_heatmap(ps.less.nosq,
+  subset.top=223,                               
+  VariableA = "site",
+  heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=T
+)
+ps.trim.nosq.mnw <- subset_samples(ps.trim.nosq,site=="MNW")
+heat.mnw <- plot_taxa_heatmap(ps.trim.nosq.mnw,
+  subset.top = 20,
+  VariableA = "zone",
+  heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=T
+)
+ps.trim.nosq.mse <- subset_samples(ps.trim.nosq,site=="MSE")
+heat.mse <- plot_taxa_heatmap(ps.trim.nosq.mse,
+  subset.top = 20,
+  VariableA = "zone",
+  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
+  #heatcolors = colorRampPalette(brewer.pal(n = 7, name = "Purples"))(100),#took out rev() here
+  transformation = "log10",
+  cluster_cols=T
+)
+ps.sz <- merge_samples(ps.rare.trim, "site_zone")
+ps.sz@sam_data$zone <- c("A","B","A","B","A","B")
+heat.all.sz <- plot_taxa_heatmap(ps.sz,
+  subset.top=20,                               
+  VariableA = "zone",
+  heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "Z-OTU",
+  cluster_cols=F
+)
 ```

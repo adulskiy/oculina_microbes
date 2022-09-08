@@ -88,6 +88,17 @@ df.div.coral$site <- as.character(df.div.coral$site)
 df.div.coral$site <- factor(df.div.coral$site, levels=c("NR","RI","CL"))
 
 #all types
+gg.sha.alltypes <- ggplot(df.div,aes(x=type,y=Shannon,color=type,group=type))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(position="jitter", size=2, alpha=0.4)+
+  scale_color_manual(values=c("darksalmon","paleturquoise3","chocolate4"))+
+  scale_x_discrete(labels=c("Coral","Seawater","Sediment"))+
+  #geom_jitter(alpha=0.5)+
+  ylab("Shannon Index")+
+  labs(x=NULL)+
+  theme_cowplot()+
+  theme(legend.position="none")
+
 gg.sha.site.alltypes <-ggplot(df.div,aes(x=type,y=Shannon,color=type,group=type))+
   geom_boxplot(outlier.shape=NA)+
   geom_point(position="jitter", size=2, alpha=0.4)+
@@ -113,8 +124,23 @@ gg.sha.seas.alltypes <-ggplot(df.div,aes(x=type,y=Shannon,color=type,group=type)
   facet_wrap(~forcats::fct_relevel(season, "Summer","Fall"))
 
 #setwd("~/oculina/diversity")
+#ggsave(gg.sha.alltypes,file="./figures/gg.sha.alltypes.png",width=8,height=4)
 #ggsave(gg.sha.site.alltypes,file="./figures/gg.sha.site.alltypes.png",width=8,height=4)
 #ggsave(gg.sha.seas.alltypes,file="./figures/gg.sha.seas.alltypes.png",width=8,height=4)
+
+### Observed
+gg.obs.alltypes <- ggplot(df.div,aes(x=type,y=Observed,color=type,group=type))+
+  geom_boxplot(outlier.shape=NA)+
+  geom_point(position="jitter", size=2, alpha=0.4)+
+  scale_color_manual(values=c("darksalmon","paleturquoise3","chocolate4"))+
+  scale_x_discrete(labels=c("Coral","Seawater","Sediment"))+
+  #geom_jitter(alpha=0.5)+
+  ylab("ASV Richness")+
+  labs(x=NULL)+
+  theme_cowplot()+
+  theme(legend.position="none")
+
+#ggsave(gg.obs.alltypes,file="./figures/gg.obs.alltypes.png",width=8,height=4)
 
 
 ### Coral only
@@ -154,15 +180,15 @@ gg.sha.coral.symb <- ggplot(df.div.coral,aes(x=symbstate,y=Shannon,color=symbsta
   theme(legend.position="none")+
   ggtitle("Coral")
 
-gg.sha.coral.seas <- ggplot(df.div.coral,aes(x=symbstate,y=Shannon,color=season))+
+gg.sha.coral.seas <- ggplot(df.div.coral,aes(x=season,y=Shannon,color=season))+
   geom_boxplot(outlier.shape=NA)+
   scale_color_manual(values=c("#ED7953FF","#8405A7FF"))+
-  #geom_jitter(alpha=0.5)+
+  geom_point(position = position_jitterdodge(dodge.width=0.5, jitter.width=1),size=3, alpha=0.5,aes(shape=season,group=season))+
   ylab("Shannon index")+
-  xlab("Site")+
+  xlab("Season")+
   theme_cowplot()+
+  theme(legend.position="none")+
   ggtitle("Coral")
-  #theme(legend.position="none")
 
 gg.sha.coral.sd <- ggplot(df.div.coral,aes(x=density,y=Shannon, color=site))+
   geom_point(size=3, aes(shape=symbstate))+
@@ -176,10 +202,23 @@ gg.sha.coral.sd <- ggplot(df.div.coral,aes(x=density,y=Shannon, color=site))+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
   geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")
 
-library(ggpmisc)
-gg.sha.coral.sd <- gg.sha.coral.sd + stat_poly_eq(label.x = "right")
+gg.sha.coral.sd.sqrt <- ggplot(df.div.coral,aes(x=density_sqrt,y=Shannon, color=site))+
+  geom_point(size=3, aes(shape=symbstate))+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+  scale_shape_manual(values=c(10, 19))+
+  theme_cowplot()+
+  xlab(expression(sqrt(Density (cells/cm2))))+
+  ylab("Shannon index")+
+  labs(shape="Symbiotic state",color="Site")+
+ # theme(legend.position="none")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")
 
-gg.obs.coral.sd.overall <- ggplot(df.div.coral,aes(x=density,y=Shannon))+
+#library(ggpmisc)
+gg.sha.coral.sd <- gg.sha.coral.sd + stat_poly_eq(label.x = "right")
+gg.sha.coral.sd.sqrt <- gg.sha.coral.sd.sqrt + stat_poly_eq(label.x = "right")
+
+gg.sha.coral.sd.overall <- ggplot(df.div.coral,aes(x=density_sqrt,y=Shannon))+
   geom_point(size=3, aes(shape=symbstate,color=site))+
   scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
   scale_shape_manual(values=c(1, 19))+
@@ -222,9 +261,10 @@ gg.sha.coral.ss.site <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate
 #ggsave(gg.sha.coral.site.ss,file="./figures/gg.sha.coral.site.ss.png",width=8,height=4)
 #ggsave(gg.sha.coral.site.seas,file="./figures/gg.sha.coral.site.seas.png",width=8,height=4)
 #ggsave(gg.sha.coral.symb,file="./figures/gg.sha.coral.symb.pdf",width=8,height=4)
-#ggsave(gg.sha.coral.seas,file="./figures/gg.sha.coral.seas.pdf",width=8,height=4)
+#ggsave(gg.sha.coral.seas,file="./figures/gg.sha.coral.seas.png",width=8,height=4)
 #ggsave(gg.sha.coral.sd,file="./figures/gg.sha.coral.sd.png",width=8,height=4)
-#ggsave(gg.sha.coral.ss.site,file="./figures/gg.sha.coral.ss.site.pdf",width=8,height=4)
+#ggsave(gg.sha.coral.sd.sqrt,file="./figures/gg.sha.coral.sd.sqrt.png",width=8,height=4)
+#ggsave(gg.sha.coral.ss.site,file="./figures/gg.sha.coral.ss.site.png",width=8,height=4)
 
 ```
 
@@ -449,23 +489,37 @@ gg.obs.coral.site.ss <- ggplot(df.div.coral,aes(x=site,y=Observed,color=site,gro
   guides(shape=guide_legend("Symbiotic State"),
          color="none")
 
-gg.obs.coral.site.seas <- ggplot(df.div.coral,aes(x=site,y=Observed,color=site,group=site))+
+gg.obs.coral.site.seas <- ggplot(df.div.coral,aes(x=site,y=Observed,color=season))+
   geom_boxplot(outlier.shape=NA)+
-  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
-  scale_shape_manual(values=c(8,17))+
-  geom_point(position = position_jitterdodge(dodge.width=0.5, jitter.width=0.02),size=3, alpha=0.5,aes(shape=season,group=season))+
-  ylab("Observed OTUs")+
+  geom_point(aes(color=season), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
+  scale_color_manual(values=c("#ED7953FF","#8405A7FF"))+
+  ylab("ASV richness")+
   xlab("Site")+
-  theme_cowplot()+
-  ggtitle("Richness (Coral)")+
-  guides(shape=guide_legend("Season"),
-         color="none")
+  labs(color = "Season")+
+  theme_cowplot() +
+  scale_x_discrete(limits=c('NR','RI', 'CL'))+
+  ggtitle("Coral")
+  #theme(legend.position="none")
 
 
 gg.obs.coral.sd <- ggplot(df.div.coral,aes(x=density,y=Observed, color=site))+
   geom_point(size=3, aes(shape=symbstate))+
   scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
   scale_shape_manual(values=c(1, 19))+
+  theme_cowplot()+
+  xlab("Density (cells/cm2)")+
+  ylab("Observed OTUs")+
+  labs(shape="Symbiotic state",color="Site")+
+ # theme(legend.position="none")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")+
+  stat_poly_eq(label.x = "right")+
+  ggtitle("Richness (Coral)")
+
+gg.obs.coral.sd.sqrt <- ggplot(df.div.coral,aes(x=density_sqrt,y=Observed, color=site))+
+  geom_point(size=3, aes(shape=symbstate))+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+  scale_shape_manual(values=c(10, 19))+
   theme_cowplot()+
   xlab("Density (cells/cm2)")+
   ylab("Observed OTUs")+
@@ -503,8 +557,8 @@ gg.obs.coral.site <- ggplot(df.div.coral,aes(x=site,y=Observed,color=site))+
 
 gg.obs.coral.seas <- ggplot(df.div.coral,aes(x=season,y=Observed,color=season))+
   geom_boxplot(outlier.shape=NA)+
+  geom_point(position = position_jitterdodge(dodge.width=0.5, jitter.width=1),size=3, alpha=0.5,aes(shape=season,group=season))+
   scale_color_manual(values=c("#ED7953FF","#8405A7FF"))+
-  geom_jitter(alpha=0.5)+
   ylab("ASV richness")+
   xlab("Site")+
   theme_cowplot()+
@@ -549,10 +603,11 @@ gg.obs.coral.ss.site <- ggplot(df.div.coral,aes(x=site,y=Observed,color=symbstat
 #ggsave(gg.obs.coral.sd,file="./figures/gg.obs.coral.sd.png",width=8,height=4)
 
 #ggsave(gg.obs.coral.site,file="./figures/gg.obs.coral.site.pdf",width=8,height=4)
-#ggsave(gg.obs.coral.seas,file="./figures/gg.obs.coral.seas.pdf",width=8,height=4)
+#ggsave(gg.obs.coral.seas,file="./figures/gg.obs.coral.seas.png",width=8,height=4)
 #ggsave(gg.obs.coral.ss,file="./figures/gg.obs.coral.ss.pdf",width=8,height=4)
 #ggsave(gg.obs.coral.sd,file="./figures/gg.obs.coral.sd.pdf",width=8,height=4)
-#ggsave(gg.obs.coral.ss.site,file="./figures/gg.obs.coral.ss.site.pdf",width=8,height=4)
+#ggsave(gg.obs.coral.sd.sqrt,file="./figures/gg.obs.coral.sd.sqrt.png",width=8,height=4)
+#ggsave(gg.obs.coral.ss.site,file="./figures/gg.obs.coral.ss.site.png",width=8,height=4)
 ```
 
 ### Evenness

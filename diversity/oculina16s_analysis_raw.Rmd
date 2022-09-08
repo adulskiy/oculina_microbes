@@ -25,6 +25,7 @@ library(dada2)
 library(stats)
 library(MuMIn)
 library(sjPlot)
+library(webshot)
 ```
 
 
@@ -32,8 +33,7 @@ library(sjPlot)
 
 ```{r read in data}
 #setwd("~/oculina/data/")
-samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE) 
-row.names(samdf) <- samdf$id
+samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE) row.names(samdf) <- samdf$id
 load("~/oculina/data/taxa2.rev.Rdata")
 ```
 
@@ -63,7 +63,6 @@ ps.less #7005 taxa, 71 samples
 
 #summary(comparedf(samdf.sd, samdf.less))
 
-
 ```
 
 
@@ -80,6 +79,14 @@ df <- data.frame(estimate_richness(ps.less, split=TRUE, measures=c("Shannon","Si
 
 df$id <- rownames(df)
 df.div <- merge(df,samdf,by="id") #add sample data
+
+#transform density
+#library(e1071)
+skewness(df.div.coral$density) #very right skewed (1.93)
+df.div.coral$density_sqrt <- sqrt(df.div.coral$density)
+
+#df.div$density <- as.numeric(df.div$density)
+#df.div <- df.div %>% mutate(density_log = log(density))
 #shannon diversity divided by species richness
 df.div$even <- df.div$Shannon/(log(df.div$Observed))
 df.div.NR <- subset(df.div,site=="NR")
@@ -101,6 +108,8 @@ df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
 df.div$season <- as.factor(df.div$season)
 df.div$site <- as.factor(df.div$site)
 df.div$type <- as.factor(df.div$type)
+df.div$density <- as.numeric(df.div$density)
+
 str(df.div)
 
 glm.0 <- glm(Shannon ~ 1, data=df.div, family=gaussian())
@@ -124,8 +133,46 @@ summary(glm.1)
 #reject null hypothesis that there is no different b/w null and model with variables
 
 tab_model(glm.1) #makes a nice looking table
+tab_model(glm.1, file="./stats/sha.types.glm.gauss.html")
+
+webshot("./stats/sha.types.glm.gauss.html", "./stats/sha.types.glm.gauss.png")
 
 
+### Evenness - all types
+
+glm.0 <- glm(even ~ 1, data=df.div, family=gaussian())
+glm.1 <- glm(even ~ type, data=df.div, family=gaussian)
+glm.2 <- glm(even ~ type + season + site, data=df.div, family=gaussian)
+glm.3 <- glm(even ~ type + season * site, data=df.div, family=gaussian)
+glm.4 <- glm(even ~ type * season + site, data=df.div, family=gaussian)
+glm.5 <- glm(even ~ type * season * site, data=df.div, family=gaussian)
+
+AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
+# null model best
+
+
+### Richness - all types
+
+glm.0 <- glm(Observed ~ 1, data=df.div, family=gaussian())
+glm.1 <- glm(Observed ~ type, data=df.div, family=gaussian)
+glm.2 <- glm(Observed ~ type + season + site, data=df.div, family=gaussian)
+glm.3 <- glm(Observed ~ type + season * site, data=df.div, family=gaussian)
+glm.4 <- glm(Observed ~ type * season + site, data=df.div, family=gaussian)
+glm.5 <- glm(Observed ~ type * season * site, data=df.div, family=gaussian)
+
+AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.2 best
+summary(glm.2)
+
+#             Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)   106.967     79.571   1.344    0.184    
+#typeseawater  102.821     65.805   1.563    0.123    
+#typesediment  360.062     65.530   5.495 7.01e-07 ***
+#seasonSummer  -17.007     56.292  -0.302    0.764    
+#siteNR         33.436     70.220   0.476    0.636    
+#siteRI          9.301     71.097   0.131    0.896   
+
+tab_model(glm.2)
 ```
 
 ```{r shannon glm coral}
@@ -140,6 +187,8 @@ df.div.coral$season <- relevel(df.div.coral$season, ref="Summer")
 df.div.coral$site <- as.factor(df.div.coral$site)
 df.div.coral$site <- relevel(df.div.coral$site, ref="NR")
 df.div.coral$density <- as.numeric(df.div.coral$density)
+df.div.coral$density_sqrt <- sqrt(df.div.coral$density)
+df.div.coral$density_sqrt <- as.numeric(df.div.coral$density_sqrt)
 str(df.div.coral)
 
 qqPlot(df.div.coral$Shannon)
@@ -177,22 +226,36 @@ tab_model(glm.2, file="./stats/sha.coral.glm.gauss.html")
 #library(webshot)
 webshot("./stats/sha.coral.glm.gauss.html", "./stats/sha.coral.glm.gauss.png")
 
+# trying with sqrt-transformed density data
 
-# This paper (https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0224060&type=printable) looked at Shannon diveristy using GLM with log link function and Quasi-Poisson distribution - trying below
-glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=quasipoisson())
-glm.1 <- glm(Shannon ~ season+site+density, data=df.div.coral, family=quasipoisson())
-#summary(glm.1)
-glm.2 <- glm(Shannon ~ season+site*density, data=df.div.coral, family=quasipoisson())
-#summary(glm.2)
-glm.3 <- glm(Shannon ~ season*site+density, data=df.div.coral, family=quasipoisson())
-#summary(glm.3)
-glm.4 <- glm(Shannon ~ site+season*density, data=df.div.coral, family=quasipoisson())
-#summary(glm.4)
-glm.5 <- glm(Shannon ~ season*site*density, data=df.div.coral, family=quasipoisson())
-#summary(glm.5)
+#df.div.coral$density_log <- as.numeric(df.div.coral$density_log)
+#density_log <- df.div.coral$density_log
+#density_log[is.infinite(density_log)] <- 0
+#df.div.coral$density_log <- density_log
 
-#Issue: can't easily calculate AIC of quasi models (https://cran.r-project.org/web/packages/bbmle/vignettes/quasi.pdf)
+glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=gaussian())
+glm.1 <- glm(Shannon ~ season+site+density_sqrt, data=df.div.coral, family=gaussian())
+glm.2 <- glm(Shannon ~ season+site*density_sqrt, data=df.div.coral, family=gaussian())
+glm.3 <- glm(Shannon ~ season*site+density_sqrt, data=df.div.coral, family=gaussian())
+glm.4 <- glm(Shannon ~ site+season*density_sqrt, data=df.div.coral, family=gaussian())
+glm.5 <- glm(Shannon ~ season*site*density_sqrt, data=df.div.coral, family=gaussian())
 
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.2 best AIC
+summary(glm.2)
+#                      Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)          2.6192306  0.3011504   8.697 1.42e-10 ***
+#seasonFall           0.3074556  0.2174935   1.414 0.165611    
+#siteCL               1.6891499  0.5996075   2.817 0.007646 ** 
+#siteRI               1.1748559  0.3747495   3.135 0.003308 ** 
+#density_sqrt         0.0004923  0.0001217   4.047 0.000246 ***
+#siteCL:density_sqrt -0.0010198  0.0002223  -4.588 4.76e-05 ***
+#siteRI:density_sqrt -0.0006796  0.0001524  -4.460 7.07e-05 ***
+
+tab_model(glm.2, digits=4)
+tab_model(glm.2, file="./stats/sha.coral.glm.gauss.sqrt.html")
+#webshot("./stats/sha.coral.glm.gauss.sqrt.html", "./stats/sha.coral.glm.gauss.sqrt.png")
+with(summary(glm.2), 1 - deviance/null.deviance) #0.5222778
 
 #trying with symbstate instead of density:
 
@@ -206,6 +269,18 @@ glm.5 <- glm(Shannon ~ season*site*symbstate, data=df.div.coral, family=gaussian
 AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
 #glm.2 best AIC
 summary(glm.2)
+#                           Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)                3.119842   0.268222  11.632 4.35e-14 ***
+#seasonFall                 0.324202   0.244887   1.324  0.19345    
+#siteRI                     0.611807   0.349167   1.752  0.08781 .  
+#siteCL                    -0.003359   0.416604  -0.008  0.99361    
+#symbstateSymbiotic         0.924520   0.356398   2.594  0.01340 *  
+#siteRI:symbstateSymbiotic -1.567137   0.484216  -3.236  0.00251 ** 
+#siteCL:symbstateSymbiotic -1.268982   0.574674  -2.208  0.03334 *  
+
+tab_model(glm.2, digits=4)
+tab_model(glm.2, file="./stats/sha.coral.glm.gauss.sqrt.html")
+#webshot("./stats/sha.coral.glm.gauss.sqrt.html", "./stats/sha.coral.glm.gauss.sqrt.png")
 ```
 
 
@@ -217,15 +292,15 @@ ggdensity(df.div.coral$even) #left skewed?
 
 
 glm.0 <- glm(even ~ 1, data=df.div.coral, family=Gamma())
-glm.1 <- glm(even ~ season+site+density, data=df.div.coral, family=Gamma())
+glm.1 <- glm(even ~ season+site+density_sqrt, data=df.div.coral, family=Gamma())
 #summary(glm.1)
-glm.2 <- glm(even ~ season+site*density, data=df.div.coral, family=Gamma())
+glm.2 <- glm(even ~ season+site*density_sqrt, data=df.div.coral, family=Gamma())
 #summary(glm.2)
-glm.3 <- glm(even ~ season*site+density, data=df.div.coral, family=Gamma())
+glm.3 <- glm(even ~ season*site+density_sqrt, data=df.div.coral, family=Gamma())
 #summary(glm.3)
-glm.4 <- glm(even ~ site+season*density, data=df.div.coral, family=Gamma())
+glm.4 <- glm(even ~ site+season*density_sqrt, data=df.div.coral, family=Gamma())
 #summary(glm.4)
-glm.5 <- glm(even ~ season*site*density, data=df.div.coral, family=Gamma())
+glm.5 <- glm(even ~ season*site*density_sqrt, data=df.div.coral, family=Gamma())
 #summary(glm.5)
 
 AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
@@ -236,6 +311,23 @@ summary(glm.0) #so none of the variables are predictive of evenness?
 #Coefficients: (2 not defined because of singularities)
 #^^^why does this happen?! i think bc of CL...can I change CL to not be intercept?
 
+
+
+glm.0 <- glm(even ~ 1, data=df.div.coral, family=Gamma())
+glm.1 <- glm(even ~ season+site+symbstate, data=df.div.coral, family=Gamma())
+#summary(glm.1)
+glm.2 <- glm(even ~ season+site*symbstate, data=df.div.coral, family=Gamma())
+#summary(glm.2)
+glm.3 <- glm(even ~ season*site+symbstate, data=df.div.coral, family=Gamma())
+#summary(glm.3)
+glm.4 <- glm(even ~ site+season*symbstate, data=df.div.coral, family=Gamma())
+#summary(glm.4)
+glm.5 <- glm(even ~ season*site*symbstate, data=df.div.coral, family=Gamma())
+#summary(glm.5)
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5) #glm.5 actually best by a smidgen...
+
+summary(glm.5)
 ```
 
 
@@ -283,7 +375,7 @@ glm.5 <- glm.nb(Observed ~ season*site*density, data=df.div.coral)
 #summary(glm.5)
 
 AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
-# glm.5 best
+# glm.5 best by a hair
 summary(glm.5)
 #                              Estimate Std. Error z value Pr(>|z|)    
 #(Intercept)                  5.628e+00  3.992e-01  14.099  < 2e-16 ***
@@ -299,6 +391,50 @@ summary(glm.5)
 #seasonSummer:siteNR:density -1.338e-07  6.390e-08  -2.095 0.036214 *  
 #seasonSummer:siteRI:density         NA         NA      NA       NA   
 
+
+### with sqrt density
+
+glm.0 <- glm.nb(Observed ~ 1, data=df.div.coral)
+glm.1 <- glm.nb(Observed ~ season+site+density_sqrt, data=df.div.coral)
+#summary(glm.1)
+glm.2 <- glm.nb(Observed ~ season+site*density_sqrt, data=df.div.coral)
+#summary(glm.2)
+glm.3 <- glm.nb(Observed ~ season*site+density_sqrt, data=df.div.coral)
+#summary(glm.3)
+glm.4 <- glm.nb(Observed ~ site+season*density_sqrt, data=df.div.coral)
+#summary(glm.4)
+glm.5 <- glm.nb(Observed ~ season*site*density_sqrt, data=df.div.coral)
+#summary(glm.5)
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.2 best with sqrt
+summary(glm.2)
+#                      Estimate Std. Error z value Pr(>|z|)    
+#(Intercept)          3.909e+00  2.423e-01  16.130  < 2e-16 ***
+#seasonFall          -1.973e-01  1.734e-01  -1.138 0.255077    
+#siteCL               1.805e+00  4.779e-01   3.778 0.000158 ***
+#siteRI               1.297e+00  3.012e-01   4.307 1.66e-05 ***
+#density_sqrt         4.820e-04  9.724e-05   4.957 7.17e-07 ***
+#siteCL:density_sqrt -1.035e-03  1.781e-04  -5.810 6.26e-09 ***
+#siteRI:density_sqrt -7.518e-04  1.224e-04  -6.144 8.06e-10 ***
+
+tab_model(glm.2, digits=4)
+
+
+glm.0 <- glm.nb(Observed ~ 1, data=df.div.coral)
+glm.1 <- glm.nb(Observed ~ season+site+symbstate, data=df.div.coral)
+#summary(glm.1)
+glm.2 <- glm.nb(Observed ~ season+site*symbstate, data=df.div.coral)
+#summary(glm.2)
+glm.3 <- glm.nb(Observed ~ season*site+symbstate, data=df.div.coral)
+#summary(glm.3)
+glm.4 <- glm.nb(Observed ~ site+season*symbstate, data=df.div.coral)
+#summary(glm.4)
+glm.5 <- glm.nb(Observed ~ season*site*symbstate, data=df.div.coral)
+#summary(glm.5)
+
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5) #null model best - weird
+
 ```
 
 ```{r GLM Simpson}
@@ -310,16 +446,16 @@ ggdensity(df.div.coral$Simpson) #very left skewed
 #maybe should use gamma? https://stats.stackexchange.com/questions/190763/how-to-decide-which-glm-family-to-use
 
 
-glm.0 <- glm(Simpson.log ~ 1, data=df.div.coral, family=Gamma())
-glm.1 <- glm(Simpson.log ~ season+site+density, data=df.div.coral, family=Gamma())
+glm.0 <- glm(Simpson ~ 1, data=df.div.coral, family=Gamma())
+glm.1 <- glm(Simpson ~ season+site+density, data=df.div.coral, family=Gamma())
 #summary(glm.1)
-glm.2 <- glm(Simpson.log ~ season+site*density, data=df.div.coral, family=Gamma())
+glm.2 <- glm(Simpson ~ season+site*density, data=df.div.coral, family=Gamma())
 #summary(glm.2)
-glm.3 <- glm(Simpson.log ~ season*site+density, data=df.div.coral, family=Gamma())
+glm.3 <- glm(Simpson ~ season*site+density, data=df.div.coral, family=Gamma())
 #summary(glm.3)
-glm.4 <- glm(Simpson.log ~ site+season*density, data=df.div.coral, family=Gamma())
+glm.4 <- glm(Simpson ~ site+season*density, data=df.div.coral, family=Gamma())
 #summary(glm.4)
-glm.5 <- glm(Simpson.log ~ season*site*density, data=df.div.coral, family=Gamma())
+glm.5 <- glm(Simpson ~ season*site*density, data=df.div.coral, family=Gamma())
 #summary(glm.5)
 
 AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
