@@ -673,135 +673,13 @@ gg.even.coral.ss.site <- ggplot(df.div.coral,aes(x=site,y=even,color=symbstate))
 ```
 
 
-## Phylogenetic diversity (Faith's D)
-
-Tutorial from dada2 author [here](https://f1000research.com/articles/5-1492/v2)
-
-```{r packages phylo d, eval=FALSE}
-#install.packages('devtools')
-#library(devtools)
-#devtools::install_github('twbattaglia/btools')
-#library(btools)
-```
-
-
-(I'm not running the following chunk every time, because only need to generate the file once)
-
-```{r fasta file generation, eval=FALSE}
-raw.otu  <- as.matrix(ps.less@otu_table)
-raw.taxa <- data.frame(ps.less@tax_table)
-rownames(raw.taxa)==colnames(raw.otu)
- 
-colnames(raw.otu) <- raw.taxa$V8
-ids <- rownames(raw.taxa)
-
-path="~/oculina/diversity/analyze_asv_table/oculina16s_rev.less.fasta"
-uniquesToFasta(raw.otu, path, ids = ids, mode = "w", width = 20000)
-```
-
-
-Actual analysis part: 
-
-(I'm not running the following chunk every time, because only need to generate the files once)
-
-```{r phylo d, eval=FALSE}
-seqs <- getSequences("oculina16s_rev.less.fasta")
-names(seqs) <- seqs # This propagates to the tip labels of the tree
-saveRDS(seqs,file="phylo.seqs.less.rds")
-#also doing the same thing with a .fasta file post-trimming to see if it makes a difference:
-#seqs <- getSequences("mr16s_rev.cleanest.trimmed copy.fasta")
-#names(seqs) <- seqs # This propagates to the tip labels of the tree
-#saveRDS(seqs,file="phylo.seqs.rev.cleanest.trimmed.rds")
-```
-
-
-Doing this next part in the cluster because it takes forever
-
-```{bash terminal phylo things, eval=FALSE}
-##script phylo.R looks like this now:
-# library(dada2)
-# library(phangorn)
-# library(DECIPHER)
-#
-# seqs <- readRDS("./phylo.seqs.rev.cleanest.rds")
-# alignment <- AlignSeqs(DNAStringSet(seqs), anchor=NA)
-# phang.align <- phyDat(as(alignment, "matrix"), type="DNA")
-# dm <- dist.ml(phang.align)
-# treeNJ <- NJ(dm) # Note, tip order != sequence order
-# fit = pml(treeNJ, data=phang.align)
-#
-# ## negative edges length changed to 0!
-# 
-# fitGTR <- update(fit, k=4, inv=0.2)
-# fitGTR <- optim.pml(fitGTR, model="GTR", optInv=TRUE, optGamma=TRUE,
-#                     rearrangement = "stochastic", control = pml.control(trace = 0))
-# detach("package:phangorn", unload=TRUE)
-# saveRDS(fitGTR, file="./phylo.fitgtr.rev.cleanest.rds")
-
-### In terminal:
-#nano phylo.sh #to create and edit text file
-#phylo.sh looks like this: 
-  # #!/bin/bash
-  # #SBATCH -p general
-  # #SBATCH -t 1-
-  # #SBATCH -N 1
-  # #SBATCH -n 1
-  # #SBATCH --mem=8gb
-  # #SBATCH --output <phylo.fitgtr.less.rds>
-  
-  # module add r
-  # module add rstudio
-  
-  # Rscript phylo.R
-
-##saved output as: phylo.fitgtr.less.rds
-```
-
-Back in R
-```{r}
-#BiocManager::install("DESeq2")
-#BiocManager::install("genefilter")
-library(DESeq2)
-library(genefilter)
-#devtools::install_github('twbattaglia/btools')
-library(btools)
-setwd("~/oculina/diversity/analyze_asv_table")
-fitGTR <- readRDS("phylo.fitgtr.less.rds")
-
-#new phyloseq object:
-taxa.less <- data.frame(ps.less@tax_table)
-seqtab.less <- data.frame(ps.less@otu_table)
-taxa.less$sqs <- row.names(taxa.less) 
-taxa.less$sqs == colnames(seqtab.less)
-row.names(taxa.less) <- taxa.less$V8
-colnames(seqtab.less) <- taxa.less$V8
-row.names(taxa.less) == colnames(seqtab.less)
-taxa.less <- as.matrix(taxa.less)
-ps.less.tree <- phyloseq(otu_table(seqtab.less, taxa_are_rows = FALSE),
-                         sample_data(samdf),
-                         tax_table(taxa.less),
-                         phy_tree(fitGTR$tree))
-
-pd.div <- estimate_pd(ps.less.tree)
-row.names(df.div) <- df.div$id
-df.div.pd <- merge(df.div,pd.div,by=0)
-
-
-## saving diversity data frame ##
-#save & read back in as needed
-#write.csv(df.div.pd,file="oculina16s_diversity_less.csv") #saving
-#df.div <- read.csv("oculina16s_diversity_less.csv",row.names=1,header=TRUE) #reading back in
-
-```
-
-
 
 ### Faith's D Plots {.tabset}
 
 #### Figures
 
 ```{r faiths d}
-df.div.pd.coral <- subset(df.div.pd, type=="coral")
+#df.div.coral.pd <- subset(df.div.pd, type=="coral")
 
 gg.fd.site.alltypes <-ggplot(df.div.pd,aes(x=type,y=PD,color=type))+
   geom_boxplot(outlier.shape=NA)+
@@ -862,15 +740,19 @@ gg.fd.coral.seas <- ggplot(df.div.pd.coral,aes(x=symbstate,y=PD,color=season))+
   ggtitle("Coral")
   #theme(legend.position="none")
 
-gg.fd.coral.sd <- ggplot(df.div.pd.coral,aes(x=density,y=PD,color=density))+
-  geom_point(size=3, alpha=0.8)+
-  scale_color_continuous(high = "#132B43", low = "#6DCDFB")+
+gg.fd.coral.sd <- ggplot(df.div.coral.pd,aes(x=density,y=PD, color=site))+
+  geom_point(size=3, aes(shape=symbstate))+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+  scale_shape_manual(values=c(10, 19))+
   theme_cowplot()+
-  xlab("Density")+
+  xlab("Density (cells/cm2)")+
   ylab("Faith's D")+
-  labs(color="Density")+
+  labs(shape="Symbiotic state",color="Site")+
  # theme(legend.position="none")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")+
+  stat_poly_eq(label.x = "right")+
+  ggtitle("Phylogenetic Diveristy (Coral)")
 
 gg.fd.coral.ss.site <- ggplot(df.div.pd.coral,aes(x=site,y=PD,color=symbstate))+
   geom_boxplot(outlier.shape=NA)+
