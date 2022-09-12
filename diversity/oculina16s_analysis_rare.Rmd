@@ -102,18 +102,21 @@ df <- data.frame(estimate_richness(ps.rare, split=TRUE, measures=c("Shannon","In
 df$id <- rownames(df)
 df.div <- merge(df,samdf,by="id") #add sample data
 #shannon diversity divided by species richness
+df.div.coral <- subset(df.div, type=="coral")
 df.div$even <- df.div$Shannon/(log(df.div$Observed))
 df.div.NR <- subset(df.div,site=="NR")
 df.div.RI <- subset(df.div,site=="RI")
 df.div.CL <- subset(df.div,site=="CL")
 df.div.summer <- subset(df.div,season=="Summer")
 df.div.fall <- subset(df.div,season=="Fall")
-df.div.coral <- subset(df.div, type=="coral")
 df.div.ss <- subset(df.div, type=="sediment" | type =="seawater")
 df.div.coral.NR <- subset(df.div.coral,site=="NR")
 df.div.coral.RI <- subset(df.div.coral,site=="RI")
 df.div.coral.CL <- subset(df.div.coral,site=="CL")
 df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
+
+#skewness(df.div.coral$density) #very right skewed (1.93)
+df.div.coral$density_sqrt <- sqrt(df.div.coral$density)
 ```
 
 
@@ -196,31 +199,32 @@ library(stats)
 library(MuMIn)
 #library(lmer)
 
-### GLM - Shannon ###
-#using Gamma distribution b/c Shannon data is positive and continuous, but not sure if this is best
-#or if inverse Gaussian is better or even something else
-glm.1 <- glm(Shannon ~ season+site+density, data=df.div.coral.log, family=Gamma())
-#summary(glm.1)
-glm.2 <- glm(Shannon ~ season+site+density+site*density, data=df.div.coral.log, family=Gamma())
-#summary(glm.2)
-glm.3 <- glm(Shannon ~ season+site+density+season*site, data=df.div.coral.log, family=Gamma())
-#summary(glm.3)
-glm.4 <- glm(Shannon ~ season+site+density+season*density, data=df.div.coral.log, family=Gamma())
-#summary(glm.4)
-glm.5 <- glm(Shannon ~ season+site+density+season*site*density, data=df.div.coral.log, family=Gamma())
-#summary(glm.5)
+glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=gaussian())
+glm.1a <- glm(Shannon ~ site, data=df.div.coral, family=gaussian())
+glm.1b <- glm(Shannon ~ season, data=df.div.coral, family=gaussian())
+glm.1c <- glm(Shannon ~ density_sqrt, data=df.div.coral, family=gaussian())
 
-AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
-#glm.2 best AIC
-summary(glm.2)
-#                Estimate Std. Error t value Pr(>|t|)    
-#(Intercept)     0.668901   0.085803   7.796  3.7e-09 ***
-#seasonSummer    0.069851   0.044588   1.567 0.126208    
-#siteNR          0.149260   0.091965   1.623 0.113562    
-#siteRI          0.078833   0.087044   0.906 0.371306    
-#density         0.004720   0.001510   3.125 0.003564 ** 
-#siteNR:density -0.007115   0.001802  -3.949 0.000362 ***
-#siteRI:density -0.004040   0.001614  -2.502 0.017157 * 
+glm.2a <- glm(Shannon ~ season+site, data=df.div.coral, family=gaussian())
+glm.2b <- glm(Shannon ~ season+density_sqrt, data=df.div.coral, family=gaussian())
+glm.2c <- glm(Shannon ~ site+density_sqrt, data=df.div.coral, family=gaussian())
+
+glm.3a <- glm(Shannon ~ season+site+density_sqrt, data=df.div.coral, family=gaussian())
+glm.3b <- glm(Shannon ~ season+site*density_sqrt, data=df.div.coral, family=gaussian())
+glm.3c <- glm(Shannon ~ season*site+density_sqrt, data=df.div.coral, family=gaussian())
+glm.3d <- glm(Shannon ~ site+season*density_sqrt, data=df.div.coral, family=gaussian())
+glm.3e <- glm(Shannon ~ season*site*density_sqrt, data=df.div.coral, family=gaussian())
+
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+
+summary(glm.3b)
+ #                     Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)          4.5853393  0.5674501   8.081 1.63e-09 ***
+#seasonSummer        -0.3559855  0.2307261  -1.543 0.131851    
+#siteNR              -1.5511394  0.6311079  -2.458 0.019074 *  
+#siteRI              -0.5065048  0.5954430  -0.851 0.400754    
+#density_sqrt        -0.0004940  0.0001903  -2.595 0.013715 *  
+#siteNR:density_sqrt  0.0009398  0.0002391   3.930 0.000382 ***
+#siteRI:density_sqrt  0.0003175  0.0002124   1.495 0.143860    
 
 
 #df.div.coral.p <- df.div.coral %>% mutate(glm.2 = predict(glm.2))
