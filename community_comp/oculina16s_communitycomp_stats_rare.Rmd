@@ -1,0 +1,292 @@
+---
+title: "oculina16s_communitycomp"
+output: html_document
+date: '2022-06-08'
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Setup
+
+```{r packages composition}
+library(rlang)
+library(stringr)
+library(dplyr)
+library(stats)
+library(ggpubr)
+library(vegan)
+library(cowplot)
+library(tidyverse)
+#library(MCMC.OTU)
+#install.packages("remotes")
+#remotes::install_github("Jtrachsel/funfuns")
+library("funfuns")
+#BiocManager::install("microbiome")
+#remotes::install_github("r-lib/rlang")
+library(microbiome)
+```
+
+
+Read in data
+
+```{r read in data}
+setwd("~/oculina/data")
+samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE)
+load("~/oculina/data/taxa2.Rdata")
+#load("ps.clean.Rdata")
+load("~/oculina/data/ps.rare.rev.Rdata")
+#load("ps.rare.trim.Rdata")
+#load("ps.trim.Rdata")
+#ps.cleanest <- readRDS("phyloseq.cleanest.RDS")
+
+```
+
+
+Rename ASVs to be more informative
+
+```{r rename ASVs}
+tax <- as.data.frame(ps.rare@tax_table@.Data)
+tax.clean <- data.frame(row.names = row.names(tax),
+                        Kingdom = str_replace(tax[,1], "D_0__",""),
+                        Phylum = str_replace(tax[,2], "D_1__",""),
+                        Class = str_replace(tax[,3], "D_2__",""),
+                        Order = str_replace(tax[,4], "D_3__",""),
+                        Family = str_replace(tax[,5], "D_4__",""),
+                        Genus = str_replace(tax[,6], "D_5__",""),
+                        Species = str_replace(tax[,7], "D_6__",""),
+                        stringsAsFactors = FALSE)
+tax.clean[is.na(tax.clean)] <- ""
+
+
+for (i in 1:7){ tax.clean[,i] <- as.character(tax.clean[,i])}
+####### Fill holes in the tax table
+tax.clean[is.na(tax.clean)] <- ""
+for (i in 1:nrow(tax.clean)){
+  if (tax.clean[i,2] == ""){
+    kingdom <- paste("Kingdom_", tax.clean[i,1], sep = "")
+    tax.clean[i, 2:7] <- kingdom
+  } else if (tax.clean[i,3] == ""){
+    phylum <- paste("Phylum_", tax.clean[i,2], sep = "")
+    tax.clean[i, 3:7] <- phylum
+  } else if (tax.clean[i,4] == ""){
+    class <- paste("Class_", tax.clean[i,3], sep = "")
+    tax.clean[i, 4:7] <- class
+  } else if (tax.clean[i,5] == ""){
+    order <- paste("Order_", tax.clean[i,4], sep = "")
+    tax.clean[i, 5:7] <- order
+  } else if (tax.clean[i,6] == ""){
+    family <- paste("Family_", tax.clean[i,5], sep = "")
+    tax.clean[i, 6:7] <- family
+  } else if (tax.clean[i,7] == ""){
+    tax.clean$Species[i] <- paste("Genus",tax.clean$Genus[i], sep = "_")
+  }
+}
+
+tax_table(pd.rare) <- as.matrix(tax.clean)
+
+
+```
+
+
+
+### Stats
+
+```{r adonis types}
+seq.rare <- data.frame(otu_table(ps.rare))
+dist.rare <- vegdist(seq.rare, method="bray")
+samdf.rare <- data.frame(sample_data(ps.rare))
+row.names(samdf.rare)==row.names(seq.rare)
+set.seed(1234)
+
+adonis2(dist.rare ~ type, data=samdf.rare, permutations=999)
+#         Df SumOfSqs      R2      F Pr(>F)    
+#type      2   4.6321 0.17727 6.8947  0.001 ***
+#Residual 64  21.4990 0.82273                  
+#Total    66  26.1311 1.00000      
+
+bet.all <- betadisper(dist.rare,samdf.rare$type)
+plot(bet.all) # look very dif
+bd <- betadisper(dist.rare, samdf.rare$type)
+anova(bd) # sig dif in dispersion, but since the centroids clearly look very dif i'm inclined to access results above (helpful video explainer here: https://www.youtube.com/watch?v=oLf0EpMJ4yA&t=1370s&ab_channel=RiffomonasProject)
+#          Df  Sum Sq  Mean Sq F value    Pr(>F)    
+#Groups     2 0.49696 0.248478  65.475 3.313e-16 ***
+#Residuals 64 0.24288 0.003795     
+
+bet.all <- betadisper(dist.rare,samdf.rare$season)
+plot(bet.all) #overlap a fair amount
+adonis2(dist.rare ~ season, data=samdf.rare, permutations=999)
+#         Df SumOfSqs      R2      F Pr(>F)    
+#season    1    0.961 0.03678 2.4817  0.001 ***
+#Residual 65   25.170 0.96322                  
+#Total    66   26.131 1.00000   
+
+bd <- betadisper(dist.rare, samdf.rare$season)
+anova(bd) # not very significant which means variation in both summer and fall similar, so result for adonis is probably legit
+
+adonis2(dist.rare ~ site, data=samdf.rare, permutations=999)
+#         Df SumOfSqs      R2      F Pr(>F)  
+#site      2   1.1882 0.04547 1.5243  0.011 *
+#Residual 64  24.9429 0.95453                
+#Total    66  26.1311 1.00000 
+
+bd <- betadisper(dist.rare, samdf.rare$site)
+anova(bd) #ns
+
+
+adonis2(dist.rare ~ type*season, data=samdf.rare, permutations=999)
+#            Df SumOfSqs      R2      F Pr(>F)    
+#type         2     8005 0.13432 5.2175  0.001 ***
+#season       1     1738 0.02916 2.2650  0.001 ***
+#type:season  2     3058 0.05131 1.9932  0.001 ***
+#Residual    61    46795 0.78521                  
+#Total       66    59595 1.00000 
+
+
+
+adonis2(dist.rare ~ type+site, data=samdf.rare, permutations=999)
+#          Df SumOfSqs      R2      F Pr(>F)    
+#type       2     8005 0.13432 5.1449  0.001 ***
+#site       2     2280 0.03826 1.4655  0.002 ** 
+#type:site  4     4189 0.07029 1.3461  0.002 ** 
+#Residual  58    45121 0.75713                  
+#Total     66    59595 1.00000     
+
+adonis2(dist.rare ~ type+season+site, data=samdf.rare, permutations=999)
+#                 Df SumOfSqs      R2      F Pr(>F)    
+#type              2     8005 0.13432 5.5102  0.001 ***
+#season            1     1738 0.02916 2.3920  0.001 ***
+#site              2     2122 0.03561 1.4608  0.003 ** 
+#type:season       2     3056 0.05129 2.1039  0.001 ***
+#type:site         4     3973 0.06666 1.3673  0.004 ** 
+#season:site       1     1101 0.01847 1.5156  0.008 ** 
+#type:season:site  2     1829 0.03069 1.2589  0.069 .  
+#Residual         52    37771 0.63380                  
+#Total            66    59595 1.00000                  
+
+
+# order of terms matters for adonis... read more here https://stats.stackexchange.com/questions/312302/adonis-in-vegan-order-of-variables-non-nested-with-one-degree-of-freedom-for
+```
+
+```{r stats for coral}
+
+seq.coral <- data.frame(otu_table(ps.coral))
+dist.coral <- vegdist(seq.coral, method="bray")
+samdf.coral <- data.frame(sample_data(ps.coral))
+row.names(samdf.coral)==row.names(seq.coral)
+
+
+adonis2(dist.coral ~ site, data=samdf.coral, permutations=999)
+#         Df SumOfSqs      R2      F Pr(>F)    
+#site      2     8045 0.06149 1.3758  0.001 ***
+#Residual 42   122801 0.93851                  
+#Total    44   130846 1.00000   
+
+adonis2(dist.coral ~ season, data=samdf.coral, permutations=999) 
+#         Df SumOfSqs      R2      F Pr(>F)    
+#season    1     5253 0.04014 1.7984  0.001 ***
+#Residual 43   125594 0.95986                  
+#Total    44   130846 1.00000             
+
+adonis2(dist.coral ~ symbstate, data=samdf.coral, permutations=999)
+#          Df SumOfSqs      R2      F Pr(>F)
+#symbstate  1   0.4102 0.02685 1.1036   0.26
+#Residual  40  14.8678 0.97315              
+#Total     41  15.2780 1.00000
+
+# will look at site and season as main effects as well as their interaction term
+adonis2(dist.coral ~ site*season, data=samdf.coral, permutations=999)
+#            Df SumOfSqs      R2      F Pr(>F)    
+#site         2   1.5246 0.09979 2.2915  0.001 ***
+#season       1   0.7769 0.05085 2.3353  0.002 ** 
+#site:season  1   0.6676 0.04369 2.0067  0.005 ** 
+#Residual    37  12.3089 0.80566                  
+#Total       41  15.2780 1.00000    
+
+
+# site * symbstate
+adonis2(dist.coral ~ site*symbstate, data=samdf.coral, permutations=999) #only site sig (***)
+
+# season * symbstate
+adonis2(dist.coral ~ season*symbstate, data=samdf.coral, permutations=999) #only season sig (***)
+
+adonis2(dist.coral ~ season*symbstate*site, data=samdf.coral, permutations=999) 
+#                      Df SumOfSqs      R2      F Pr(>F)    
+#season                 1     5253 0.04014 1.8552  0.001 ***
+#symbstate              1     2929 0.02239 1.0346  0.265    
+#site                   2     7344 0.05613 1.2969  0.001 ***
+#season:symbstate       1     2904 0.02220 1.0258  0.393    
+#season:site            1     4129 0.03156 1.4585  0.002 ** 
+#symbstate:site         2     5951 0.04548 1.0509  0.217    
+#season:symbstate:site  1     3241 0.02477 1.1448  0.117    
+#Residual              35    99094 0.75734                  
+#Total                 44   130846 1.00000   
+# try with just NR and RI just to check
+ps.coral.noCL <- subset_samples(ps.coral,site %in% c("NR","RI"))
+seq.coral.noCL <- data.frame(otu_table(ps.coral.noCL))
+dist.coral.noCL <- vegdist(seq.coral.noCL, method="euclidian")
+samdf.coral.noCL <- data.frame(sample_data(ps.coral.noCL))
+row.names(samdf.coral.noCL)==row.names(seq.coral.noCL)
+adonis2(dist.coral.noCL ~ symbstate, data=samdf.coral.noCL, permutations=999) #not sig
+
+### BETADISPER ###
+# If you have uneven variation in your data, adonis might not be effective -- should check for variation in dispersion using betadisper
+
+# CORAL - SITE
+bet.all <- betadisper(dist.coral,samdf.coral$site) #Betadisper calculates the average distance of group members to the group centroid in multivariate space (generated by a distance matrix). ANOVA/Permutest then tests whether distances are significantly different between groups.
+bet.all
+#Average distance to median:
+#   CL    NR    RI 
+#43.23 54.10 51.07 
+
+plot(bet.all) # p < 0.5 *
+anova(bet.all)
+# CORAL - SEASON
+bet.all <- betadisper(dist.coral,samdf.coral$season)
+plot(bet.all)
+anova(bet.all) #ns
+
+# CORAL - SYMB STATE
+bet.all <- betadisper(dist.coral,samdf.coral$symbstate)
+plot(bet.all)
+anova(bet.all) #ns
+
+# Excluding CL
+bet.all <- betadisper(dist.coral.noCL,samdf.coral.noCL$symbstate)
+plot(bet.all)
+permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
+
+```
+
+
+
+```{r plot heatmap}
+ps.coral.pt <- prune_taxa(names(sort(taxa_sums(ps.coral),TRUE)[1:300]), ps.coral)
+plot_heatmap(ps.coral.pt)
+
+
+```
+
+
+```{r bubble plot}
+library("reshape2")
+library("stringr")
+library("ggplot2")
+library("RColorBrewer")
+
+#setwd("~/oculina_old/setup/tax")
+OTU = read.table("ASVtable.txt", header=TRUE, sep="\t", row.names = 1)
+RAtab <- sweep(OTU,1,rowSums(OTU),"/")
+#write.csv(RAtab, "ASVtablePercent.csv") #uncomment this to write out your new ASV table
+#row sums before
+rowSums(OTU)
+#check row sums after-- should be 1 for all samples
+rowSums(RAtab)
+
+
+```
+
