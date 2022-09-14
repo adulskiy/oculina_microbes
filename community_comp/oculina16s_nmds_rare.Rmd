@@ -1,0 +1,203 @@
+---
+title: "oculina16s_nmds"
+output: html_document
+date: '2022-08-15'
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(vegan)
+library(phyloseq)
+
+#setwd("~/oculina/data")
+load("~/oculina/data/ps.rare.rev.Rdata")
+```
+
+
+Rename ASVs to be more informative
+
+```{r rename ASVs}
+tax <- as.data.frame(ps.rare@tax_table@.Data)
+tax.clean <- data.frame(row.names = row.names(tax),
+                        Kingdom = str_replace(tax[,1], "D_0__",""),
+                        Phylum = str_replace(tax[,2], "D_1__",""),
+                        Class = str_replace(tax[,3], "D_2__",""),
+                        Order = str_replace(tax[,4], "D_3__",""),
+                        Family = str_replace(tax[,5], "D_4__",""),
+                        Genus = str_replace(tax[,6], "D_5__",""),
+                        Species = str_replace(tax[,7], "D_6__",""),
+                        stringsAsFactors = FALSE)
+tax.clean[is.na(tax.clean)] <- ""
+
+
+for (i in 1:7){ tax.clean[,i] <- as.character(tax.clean[,i])}
+####### Fill holes in the tax table
+tax.clean[is.na(tax.clean)] <- ""
+for (i in 1:nrow(tax.clean)){
+  if (tax.clean[i,2] == ""){
+    kingdom <- paste("Kingdom_", tax.clean[i,1], sep = "")
+    tax.clean[i, 2:7] <- kingdom
+  } else if (tax.clean[i,3] == ""){
+    phylum <- paste("Phylum_", tax.clean[i,2], sep = "")
+    tax.clean[i, 3:7] <- phylum
+  } else if (tax.clean[i,4] == ""){
+    class <- paste("Class_", tax.clean[i,3], sep = "")
+    tax.clean[i, 4:7] <- class
+  } else if (tax.clean[i,5] == ""){
+    order <- paste("Order_", tax.clean[i,4], sep = "")
+    tax.clean[i, 5:7] <- order
+  } else if (tax.clean[i,6] == ""){
+    family <- paste("Family_", tax.clean[i,5], sep = "")
+    tax.clean[i, 6:7] <- family
+  } else if (tax.clean[i,7] == ""){
+    tax.clean$Species[i] <- paste("Genus",tax.clean$Genus[i], sep = "_")
+  }
+}
+
+tax_table(ps.rare) <- as.matrix(tax.clean)
+
+```
+
+```{r make NMDS plots (all types)}
+library(ggpubr)
+library(cowplot)
+#setwd("~/oculina/community_comp")
+
+nmds.alltypes.rare <- plot_ordination(ps.rare,ordinate(ps.rare,"NMDS", "bray"),color="type", shape="type")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_color_manual(name="Type",values=c("darksalmon","paleturquoise3","chocolate4"), labels=c("Coral","Seawater","Sediment"))+
+  scale_shape_manual(name="Type",values=c(16,15,17), labels=c("Coral","Seawater","Sediment"))+
+  annotate("text", x=3.2,y=2, label='bolditalic(p < "0.001***")',parse=TRUE)+
+  annotate("text", x=3.2,y=1.8, label='bolditalic(p[dis] < "0.001***")',parse=TRUE)
+nmds.alltypes.rare
+#ggsave(nmds.alltypes.rare,file="~/oculina/community_comp/figures/nmds.alltypes.rare.png",width=6,height=4)
+
+nmds.alltypes.rare.site <- plot_ordination(ps.rare,ordinate(ps.rare,"NMDS", "bray"),color="type", shape="type")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_color_manual(name="Type",values=c("darksalmon","paleturquoise3","chocolate4"), labels=c("Coral","Seawater","Sediment"))+
+  scale_shape_manual(name="Type",values=c(16,15,17), labels=c("Coral","Seawater","Sediment"))+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+nmds.alltypes.rare.seas <- plot_ordination(ps.rare,ordinate(ps.rare,"NMDS", "bray"),color="type", shape="type")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_color_manual(name="Type",values=c("darksalmon","paleturquoise3","chocolate4"), labels=c("Coral","Seawater","Sediment"))+
+  scale_shape_manual(name="Type",values=c(16,15,17), labels=c("Coral","Seawater","Sediment"))+
+  facet_wrap(~forcats::fct_relevel(season, "Summer", "Fall"))
+
+#ggsave(nmds.alltypes.rare.seas,file="~/oculina/community_comp/figures/nmds.alltypes.rare.seas.png",width=8,height=4)
+
+```
+
+```{r reoder sample data}
+sample_data(ps.rare)[1:10]
+sample_data(ps.rare)$type <- as.factor(sample_data(ps.rare)$type)
+sample_data(ps.rare)$site <- as.factor(sample_data(ps.rare)$site)
+sample_data(ps.rare)$site <- factor(sample_data(ps.rare)$site, levels=c("NR","RI","CL"))
+sample_data(ps.rare)$season <- factor(sample_data(ps.rare)$season, levels=c("Summer", "Fall"))
+sample_data(ps.rare)$season <- as.factor(sample_data(ps.rare)$season)
+levels(sample_data(ps.rare)$site)
+ps.coral <- subset_samples(ps.rare,type=="coral")
+
+
+```
+
+
+```{r make NMDS plots (just coral)}
+#library(ggpubr)
+#library(cowplot)
+#setwd("~/oculina/community_comp")
+
+nmds.coral.site <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="site", shape="site")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_color_manual(name="Site",values=c("#000004","darkslategray4","darkslategray3"))+
+  scale_shape_manual(name="Site",values=c(8,4,9))+
+  annotate("text", x=0.45,y=0.43, label='bolditalic(p < "0.001***")',parse=TRUE)+
+  annotate("text", x=0.45,y=0.40, label='bolditalic(p[dis] < "0.05*")',parse=TRUE)
+
+#ggsave(nmds.coral.site,file="~/oculina/community_comp/figures/nmds.coral.rare.site.png",width=6,height=4)
+
+
+nmds.coral.season <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="season", shape="season")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_color_manual(name="Season",values=c("goldenrod1","darkorchid4"))+
+  scale_shape_manual(name="Season",values=c(8,4))+
+  annotate("text", x=0.45,y=0.42, label='bolditalic(p < "0.001***")',parse=TRUE)+
+  annotate("text", x=0.45,y=0.38, label='italic(p[dis] == "n.s.")',parse=TRUE)
+
+#ggsave(nmds.coral.season,file="~/oculina/community_comp/figures/nmds.coral.rare.season.png",width=6,height=4)
+
+
+nmds.coral.ss <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="symbstate", shape="symbstate")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
+  scale_shape_manual(name="Symbiotic State",values=c(10, 19),labels=c("Aposymbiotic","Symbiotic"))+
+  geom_point(size=2.5)+
+  annotate("text", x=0.45,y=0.42, label='italic(p[dis] == "n.s.")',parse=TRUE)+
+  annotate("text", x=0.45,y=0.38, label='italic(p[dis] == "n.s.")',parse=TRUE)
+
+nmds.coral.ss$layers <- nmds.coral.ss$layers[-1]
+#ggsave(nmds.coral.ss,file="~/oculina/community_comp/figures/nmds.coral.rare.ss.png",width=6,height=4)
+
+
+#nmds.coral.sd <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"), color="density",shape="site")+
+ # stat_ellipse()+
+#  theme_cowplot()+
+#  geom_point(size=3)+
+#  scale_color_continuous(high = "#132B43", low = "#CFEDF6")+
+ # scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic"))
+
+
+
+#ggsave(nmds.coral.season,file="./figures/raw/nmds.coral.season.png",width=6,height=4)
+#ggsave(nmds.coral.ss,file="./figures/raw/nmds.coral.ss.png",width=6,height=4)
+#ggsave(nmds.coral.sd,file="./figures/raw/nmds.coral.sd.png",width=8,height=4)
+
+
+```
+
+```{r NMDS coral all sites}
+nmds.coral.season.all <- plot_ordination(ps.coral,ordinate(ps.coral,"NMDS", "bray"),color="season", shape="season")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_colour_manual(name="Season", values=c("#8405A7FF","#ED7953FF"))+
+  scale_shape_manual(name="Season",values=c(8,4))+
+  #xlab("Axis 1 (40.5%)")+
+ # ylab("Axis 2 (19%)")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+nmds.coral.ss.all <- plot_ordination(ps.coral,ordinate(ps.coral,"NMDS", "bray"),color="symbstate",shape="symbstate")+
+  stat_ellipse()+
+  theme_cowplot()+
+  scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
+  scale_shape_manual(name="Symbiotic State",values=c(8,4),labels=c("Aposymbiotic","Symbiotic"))+
+  #xlab("Axis 1 (40.5%)")+
+ # ylab("Axis 2 (19%)")+
+  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
+
+#ggsave(nmds.coral.season.all,file="./figures/raw/nmds.coral.season.all.png",width=8,height=4)
+#ggsave(nmds.coral.ss.all,file="./figures/raw/nmds.coral.ss.all.png",width=9,height=5)
+```
+
+```{r all together!}
+#library(ggpubr)
+
+gg.nmds.alltypes.arranged <- ggarrange(nmds.alltypes.rare, nmds.alltypes.rare.site, nmds.alltypes.rare.seas, labels=c("A)", "B)", "C)"), ncol=1)
+gg.nmds.coral.arranged <- ggarrange(nmds.coral.site, nmds.coral.season, nmds.coral.ss, labels=c("A)", "B)", "C)"))
+
+#ggsave(gg.nmds.alltypes.arranged,file="~/oculina/community_comp/figures/gg.nmds.alltypes.rare.arranged.png",width=10,height=12)
+#ggsave(gg.nmds.coral.arranged,file="~/oculina/community_comp/figures/gg.nmds.coral.rare.arranged.png",width=12,height=10)
+
+```
+
