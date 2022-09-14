@@ -25,6 +25,10 @@ library(car)
 library(ggpubr)
 library(vegan)
 library(dada2)
+library(stats)
+library(MuMIn)
+library(sjPlot)
+library(webshot)
 ```
 
 
@@ -47,16 +51,8 @@ ps.rare <- phyloseq(otu_table(seqtab.rare, taxa_are_rows=FALSE),
                     tax_table(taxa2))
 ps.rare  
 #save(ps.rare,file="ps.rare.rev.Rdata")
-#5237 taxa - raw & rarefied
+#5138 taxa - raw & rarefied
 
-#raw, unrarefied version:
-seqtab.clean <- read.csv("oculina16s_rev_seqtab.cleanest.csv",row.names=1)
-ps.clean <- phyloseq(otu_table(seqtab.clean, taxa_are_rows=FALSE), 
-                    sample_data(samdf), 
-                    tax_table(taxa2))
-ps.clean
-#save(ps.clean,file="ps.clean.rev.Rdata")
-#6573 taxa just raw, not rarefied
 
 ```
 
@@ -102,8 +98,8 @@ df <- data.frame(estimate_richness(ps.rare, split=TRUE, measures=c("Shannon","In
 df$id <- rownames(df)
 df.div <- merge(df,samdf,by="id") #add sample data
 #shannon diversity divided by species richness
-df.div.coral <- subset(df.div, type=="coral")
 df.div$even <- df.div$Shannon/(log(df.div$Observed))
+df.div.coral <- subset(df.div, type=="coral")
 df.div.NR <- subset(df.div,site=="NR")
 df.div.RI <- subset(df.div,site=="RI")
 df.div.CL <- subset(df.div,site=="CL")
@@ -114,9 +110,36 @@ df.div.coral.NR <- subset(df.div.coral,site=="NR")
 df.div.coral.RI <- subset(df.div.coral,site=="RI")
 df.div.coral.CL <- subset(df.div.coral,site=="CL")
 df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
-
+df.div.coral$density <- as.numeric(df.div.coral$density)
 #skewness(df.div.coral$density) #very right skewed (1.93)
 df.div.coral$density_sqrt <- sqrt(df.div.coral$density)
+```
+
+### Cross validation?
+```{r}
+library(modelr)
+library(purrr)
+cv <- crossv_kfold(df.div.coral, k=3)
+mod1 <- map(cv$train, ~lm(Shannon ~ site + season + density_sqrt, data=.))
+mod2 <- map(cv$train, ~lm(Shannon ~ site + season + symbstate, data=.))
+
+get_pred <- function(model, test_data){
+  data <- as.data.frame(test_data)
+  pred <- add_predictions(data, model)
+  return(pred)
+}
+
+pred1 <- map2_df(mod1, cv$test, get_pred, .id= "Run")
+pred2 <- map2_df(mod2, cv$test, get_pred, .id= "Run")
+
+MSE1 <- pred1 %>% group_by(Run) %>%
+  summarise(MSE=mean(Shannon-pred)^2)
+
+MSE2 <- pred2 %>% group_by(Run) %>%
+  summarise(MSE=mean(Shannon-pred)^2)
+
+mean(MSE1$MSE)
+mean(MSE2$MSE)
 ```
 
 
@@ -169,6 +192,86 @@ plot_specs_violin(specs_list, label_cex=0.6, cols="red") #all nonsig! lol
 
 
 ### GLMS - Alpha Diversity Indices
+
+```{r compare types (coral, sed, sw)}
+df.div$season <- as.factor(df.div$season)
+df.div$site <- as.factor(df.div$site)
+df.div$type <- as.factor(df.div$type)
+df.div$season <- relevel(df.div$season, ref="Summer")
+df.div$site <- relevel(df.div$site, ref="NR")
+
+str(df.div)
+
+glm.0 <- glm(Shannon ~ 1, data=df.div, family=gaussian())
+glm.1 <- glm(Shannon ~ type, data=df.div, family=gaussian)
+glm.2 <- glm(Shannon ~ type + season + site, data=df.div, family=gaussian)
+glm.3 <- glm(Shannon ~ type + season * site, data=df.div, family=gaussian)
+glm.4 <- glm(Shannon ~ type * season + site, data=df.div, family=gaussian)
+glm.5 <- glm(Shannon ~ type * season * site, data=df.div, family=gaussian)
+
+AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.1 is best model
+summary(glm.1)
+#           Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)    3.5004     0.1197  29.242  < 2e-16 ***
+#typeseawater   0.2379     0.2462   0.966    0.338    
+#typesediment   1.5806     0.2539   6.225 4.17e-08 ***
+
+#calc diff in chi square statistics for null model and the model with independent variances (deviances) and dif in df
+1-pchisq(61.967-38.515, 66-64)
+#8.080959e-06
+#reject null hypothesis that there is no different b/w null and model with variables
+
+tab_model(glm.1) #makes a nice looking table
+tab_model(glm.1, file="./stats/sha.types.glm.gauss.html")
+
+webshot("./stats/sha.types.glm.gauss.html", "./stats/sha.types.glm.gauss.png")
+
+
+### Evenness - all types
+
+glm.0 <- glm(even ~ 1, data=df.div, family=gaussian())
+glm.1 <- glm(even ~ type, data=df.div, family=gaussian)
+glm.2 <- glm(even ~ type + season + site, data=df.div, family=gaussian)
+glm.3 <- glm(even ~ type + season * site, data=df.div, family=gaussian)
+glm.4 <- glm(even ~ type * season + site, data=df.div, family=gaussian)
+glm.5 <- glm(even ~ type * season * site, data=df.div, family=gaussian)
+
+AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.4 best
+summary(glm.4)
+#                         Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)                0.81560    0.03153  25.870  < 2e-16 ***
+#typeseawater              -0.14189    0.03951  -3.592 0.000670 ***
+#typesediment               0.03497    0.03951   0.885 0.379709    
+#seasonSummer              -0.10766    0.02611  -4.123 0.000119 ***
+#siteNR                     0.05411    0.02636   2.052 0.044581 *  
+#siteRI                     0.03957    0.02622   1.509 0.136605    
+#typeseawater:seasonSummer  0.18882    0.04947   3.817 0.000327 ***
+#typesediment:seasonSummer  0.12165    0.05122   2.375 0.020804 *  
+
+tab_model(glm.4)
+### Richness - all types
+
+glm.0 <- glm(Observed ~ 1, data=df.div, family=gaussian())
+glm.1 <- glm(Observed ~ type, data=df.div, family=gaussian)
+glm.2 <- glm(Observed ~ type + season + site, data=df.div, family=gaussian)
+glm.3 <- glm(Observed ~ type + season * site, data=df.div, family=gaussian)
+glm.4 <- glm(Observed ~ type * season + site, data=df.div, family=gaussian)
+glm.5 <- glm(Observed ~ type * season * site, data=df.div, family=gaussian)
+
+AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.1 best (dif from raw analysis, where glm.2 was best)
+summary(glm.1)
+
+#             Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)    104.81      17.41   6.019 9.40e-08 ***
+#typeseawater    54.58      35.82   1.524    0.133    
+#typesediment   256.61      36.94   6.947 2.31e-09 ***
+
+tab_model(glm.1)
+```
+
 ```{r shannon revised stats (glm)}
 
 # Notes on alpha diversity indices:
@@ -178,21 +281,12 @@ plot_specs_violin(specs_list, label_cex=0.6, cols="red") #all nonsig! lol
 
 
 df.div.coral$season <- as.factor(df.div.coral$season)
+df.div.coral$season <- relevel(df.div.coral$season, ref="Summer")
 df.div.coral$site <- as.factor(df.div.coral$site)
-df.div.coral$density <- as.numeric(df.div.coral$density)
-str(df.div.coral)
-
-ggplot(df.div.coral, aes(x=Shannon))+
-  geom_histogram(binwidth=.2, fill="#69b3a2", color="#e9ecef", alpha=0.9)
-shapiro.test(df.div.coral$Shannon)
-#log transform
-df.div.coral.log <- df.div.coral
-df.div.coral.log$Shannon <- log(df.div.coral.log$Shannon)
-ggplot(df.div.coral.log, aes(x=Shannon))+
-  geom_histogram(binwidth=.05, fill="#69b3a2", color="#e9ecef", alpha=0.9)
-shapiro.test(df.div.coral.log$Shannon)
-
-# I think log transformed data is better here? Should ask a stats person to double check
+df.div.coral$site <- relevel(df.div.coral$site, ref="NR")
+#df.div.coral$density <- as.numeric(df.div.coral$density)
+#df.div.coral$density_sqrt <- sqrt(df.div.coral$density)
+df.div.coral$density_sqrt <- as.numeric(df.div.coral$density_sqrt)
 
 library(stats)
 #install.packages("MuMIn")
@@ -227,127 +321,220 @@ summary(glm.3b)
 #siteRI:density_sqrt  0.0003175  0.0002124   1.495 0.143860    
 
 
-#df.div.coral.p <- df.div.coral %>% mutate(glm.2 = predict(glm.2))
-#ggplot(df.div.coral.p, aes(x=season, y=Shannon))+
-#  geom_boxplot()+
-#  geom_point(position=position_jitter(height=0,width=0.2))
+tab_model(glm.3b, digits=4)
 
-#ggplot(df.div.coral.p, aes(x=site, y=Shannon))+
-#  geom_boxplot()+
-#  geom_point(position=position_jitter(height=0,width=0.2))
+#trying with symbstate instead of density:
 
-#ggplot(df.div.coral.p, aes(x=density, y=Shannon,color=site))+
-#  geom_point(position=position_jitter(height=0,width=0.2))
+glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=gaussian())
+glm.1a <- glm(Shannon ~ site, data=df.div.coral, family=gaussian())
+glm.1b <- glm(Shannon ~ season, data=df.div.coral, family=gaussian())
+glm.1c <- glm(Shannon ~ symbstate, data=df.div.coral, family=gaussian())
 
+glm.2a <- glm(Shannon ~ season+site, data=df.div.coral, family=gaussian())
+glm.2b <- glm(Shannon ~ season+symbstate, data=df.div.coral, family=gaussian())
+glm.2c <- glm(Shannon ~ site+symbstate, data=df.div.coral, family=gaussian())
 
+glm.3a <- glm(Shannon ~ season+site+symbstate, data=df.div.coral, family=gaussian())
+glm.3b <- glm(Shannon ~ season+site*symbstate, data=df.div.coral, family=gaussian())
+glm.3c <- glm(Shannon ~ season*site+symbstate, data=df.div.coral, family=gaussian())
+glm.3d <- glm(Shannon ~ site+season*symbstate, data=df.div.coral, family=gaussian())
+glm.3e <- glm(Shannon ~ season*site*symbstate, data=df.div.coral, family=gaussian())
+
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+#glm.1b best AIC (dif from raw)
+summary(glm.1b)
+#             Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)    3.9048     0.2001  19.511   <2e-16 ***
+#seasonSummer  -0.6066     0.2451  -2.475   0.0177 *  
+
+tab_model(glm.1b, digits=2)
 ```
 
 ```{r}
 ## GLM - Evenness ###
 
-ggplot(df.div.coral, aes(x=even))+
-  geom_histogram(binwidth=.02, fill="#69b3a2", color="#e9ecef", alpha=0.9)
-shapiro.test(df.div.coral$even)
-#log trasform
-df.div.coral.log$even <- log(df.div.coral.log$even)
-ggplot(df.div.coral.log, aes(x=even))+
-  geom_histogram(binwidth=.02, fill="#69b3a2", color="#e9ecef", alpha=0.9)
-shapiro.test(df.div.coral.log$even)
-# doesn't look better and shapiro test is worse, so use non-log transformed data
+glm.0 <- glm(even ~ 1, data=df.div.coral, family=gaussian())
+glm.1a <- glm(even ~ site, data=df.div.coral, family=gaussian())
+glm.1b <- glm(even ~ season, data=df.div.coral, family=gaussian())
+glm.1c <- glm(even ~ density_sqrt, data=df.div.coral, family=gaussian())
 
-#models:
-glm.1 <- glm(even ~ season+site+density, data=df.div.coral, family=Gamma())
-#summary(glm.1)
-glm.2 <- glm(even ~ season+site+density+site*density, data=df.div.coral, family=Gamma())
-#summary(glm.2)
-glm.3 <- glm(even ~ season+site+density+season*site, data=df.div.coral, family=Gamma())
-#summary(glm.3)
-glm.4 <- glm(even ~ season+site+density+season*density, data=df.div.coral, family=Gamma())
-#summary(glm.4)
-glm.5 <- glm(even ~ season+site+density+season*site*density, data=df.div.coral, family=Gamma())
-#summary(glm.5)
+glm.2a <- glm(even ~ season+site, data=df.div.coral, family=gaussian())
+glm.2b <- glm(even ~ season+density_sqrt, data=df.div.coral, family=gaussian())
+glm.2c <- glm(even ~ site+density_sqrt, data=df.div.coral, family=gaussian())
 
-AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
-# glm.5 best AIC
-summary(glm.5)
-#Coefficients: (2 not defined because of singularities)
-#^^^why does this happen?! i think bc of CL...can I change CL to not be intercept?
+glm.3a <- glm(even ~ season+site+density_sqrt, data=df.div.coral, family=gaussian())
+glm.3b <- glm(even ~ season+site*density_sqrt, data=df.div.coral, family=gaussian())
+glm.3c <- glm(even ~ season*site+density_sqrt, data=df.div.coral, family=gaussian())
+glm.3d <- glm(even ~ site+season*density_sqrt, data=df.div.coral, family=gaussian())
+glm.3e <- glm(even ~ season*site*density_sqrt, data=df.div.coral, family=gaussian())
+
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+
+# glm.1b best (dif from raw, was 1c) - lines up with effect of season above (for all types) too
+summary(glm.1b) 
+#             Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)    3.9048     0.2001  19.511   <2e-16 ***
+#seasonSummer  -0.6066     0.2451  -2.475   0.0177 *  
+
+tab_model(glm.1b, digits=2)
+
+### Symbstate - evenness
+
+glm.0 <- glm(even ~ 1, data=df.div.coral, family=gaussian())
+glm.1a <- glm(even ~ site, data=df.div.coral, family=gaussian())
+glm.1b <- glm(even ~ season, data=df.div.coral, family=gaussian())
+glm.1c <- glm(even ~ symbstate, data=df.div.coral, family=gaussian())
+
+glm.2a <- glm(even ~ season+site, data=df.div.coral, family=gaussian())
+glm.2b <- glm(even ~ season+symbstate, data=df.div.coral, family=gaussian())
+glm.2c <- glm(even ~ site+symbstate, data=df.div.coral, family=gaussian())
+
+glm.3a <- glm(even ~ season+site+symbstate, data=df.div.coral, family=gaussian())
+glm.3b <- glm(even ~ season+site*symbstate, data=df.div.coral, family=gaussian())
+glm.3c <- glm(even ~ season*site+symbstate, data=df.div.coral, family=gaussian())
+glm.3d <- glm(even ~ site+season*symbstate, data=df.div.coral, family=gaussian())
+glm.3e <- glm(even ~ season*site*symbstate, data=df.div.coral, family=gaussian())
+
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+ #glm.3c best 
+
+summary(glm.3c)
+#                    Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)          0.82447    0.04706  17.521  < 2e-16 ***
+#seasonSummer        -0.14554    0.03727  -3.905 0.000397 ***
+#siteNR              -0.03489    0.06199  -0.563 0.577000    
+#siteRI               0.04075    0.03831   1.064 0.294605    
+#symbstateSymbiotic   0.02750    0.02538   1.083 0.285805    
+#seasonSummer:siteNR  0.13067    0.06121   2.135 0.039649 *  
+#seasonSummer:siteRI       NA         NA      NA       NA   
+
+tab_model(glm.3c)
 
 ```
 
 
-```{r}
-## GLM - Evenness ###
+```{r GLM richness}
+## GLM - richness ###
+qqPlot(df.div.coral$Observed) # discrete, not continuous
+shapiro.test(df.div.coral$Observed) #really sig/not normal
+ggdensity(df.div.coral$Observed) #right skewed
 
-ggplot(df.div.coral, aes(x=even))+
-  geom_histogram(binwidth=.02, fill="#69b3a2", color="#e9ecef", alpha=0.9)
-shapiro.test(df.div.coral$even)
-#log trasform
-df.div.coral.log$even <- log(df.div.coral.log$even)
-ggplot(df.div.coral.log, aes(x=even))+
-  geom_histogram(binwidth=.02, fill="#69b3a2", color="#e9ecef", alpha=0.9)
-shapiro.test(df.div.coral.log$even)
-# doesn't look better and shapiro test is worse, so use non-log transformed data
-
-#models:
-glm.1 <- glm(even ~ season+site+density, data=df.div.coral, family=Gamma())
+#using poisson because counts; however, poisson is sensitive to assumption that mean is equal to variance; alternative is quasi-poisson or negative binomial
+glm.0 <- glm(Observed ~ 1, data=df.div.coral, family=poisson())
+glm.1 <- glm(Observed ~ season+site+density, data=df.div.coral, family=poisson())
 #summary(glm.1)
-glm.2 <- glm(even ~ season+site+density+site*density, data=df.div.coral, family=Gamma())
+glm.2 <- glm(Observed ~ season+site*density, data=df.div.coral, family=poisson())
 #summary(glm.2)
-glm.3 <- glm(even ~ season+site+density+season*site, data=df.div.coral, family=Gamma())
+glm.3 <- glm(Observed ~ season*site+density, data=df.div.coral, family=poisson())
 #summary(glm.3)
-glm.4 <- glm(even ~ season+site+density+season*density, data=df.div.coral, family=Gamma())
+glm.4 <- glm(Observed ~ site+season*density, data=df.div.coral, family=poisson())
 #summary(glm.4)
-glm.5 <- glm(even ~ season+site+density+season*site*density, data=df.div.coral, family=Gamma())
+glm.5 <- glm(Observed ~ season*site*density, data=df.div.coral, family=poisson())
 #summary(glm.5)
 
-AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
-# glm.5 best AIC
-summary(glm.5)
+AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.5 is best
+summary(glm.5) 
+
+#for glm.5:
 #Coefficients: (2 not defined because of singularities)
 #^^^why does this happen?! i think bc of CL...can I change CL to not be intercept?
 
+
+# trying negative binomial
+library(MASS)
+
+glm.0 <- glm.nb(Observed ~ 1, data=df.div.coral)
+glm.1a <- glm.nb(Observed ~ site, data=df.div.coral)
+glm.1b <- glm.nb(Observed ~ season, data=df.div.coral)
+glm.1c <- glm.nb(Observed ~ density_sqrt, data=df.div.coral)
+
+glm.2a <- glm.nb(Observed ~ season+site, data=df.div.coral)
+glm.2b <- glm.nb(Observed ~ season+density_sqrt, data=df.div.coral)
+glm.2c <- glm.nb(Observed ~ site+density_sqrt, data=df.div.coral)
+
+glm.3a <- glm.nb(Observed ~ season+site+density_sqrt, data=df.div.coral)
+glm.3b <- glm.nb(Observed ~ season+site*density_sqrt, data=df.div.coral)
+glm.3c <- glm.nb(Observed ~ season*site+density_sqrt, data=df.div.coral)
+glm.3d <- glm.nb(Observed ~ site+season*density_sqrt, data=df.div.coral)
+glm.3e <- glm.nb(Observed ~ season*site*density_sqrt, data=df.div.coral)
+
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+
+# glm.3b best (same as raw)
+
+summary(glm.3b)
+#                      Estimate Std. Error z value Pr(>|z|)    
+#(Intercept)          5.4430490  0.4078756  13.345  < 2e-16 ***
+#seasonSummer         0.0674280  0.1661036   0.406 0.684787    
+#siteNR              -1.4592003  0.4547268  -3.209 0.001332 ** 
+#siteRI              -0.5191887  0.4280676  -1.213 0.225181    
+#density_sqrt        -0.0004707  0.0001384  -3.402 0.000669 ***
+#siteNR:density_sqrt  0.0008273  0.0001732   4.776 1.79e-06 ***
+#siteRI:density_sqrt  0.0002334  0.0001547   1.509 0.131291    
+
+tab_model(glm.3b, digits=4)
+
+
+### symbiotic state
+glm.0 <- glm.nb(Observed ~ 1, data=df.div.coral)
+glm.1a <- glm.nb(Observed ~ site, data=df.div.coral)
+glm.1b <- glm.nb(Observed ~ season, data=df.div.coral)
+glm.1c <- glm.nb(Observed ~ symbstate, data=df.div.coral)
+
+glm.2a <- glm.nb(Observed ~ season+site, data=df.div.coral)
+glm.2b <- glm.nb(Observed ~ season+symbstate, data=df.div.coral)
+glm.2c <- glm.nb(Observed ~ site+symbstate, data=df.div.coral)
+
+glm.3a <- glm.nb(Observed ~ season+site+symbstate, data=df.div.coral)
+glm.3b <- glm.nb(Observed ~ season+site*symbstate, data=df.div.coral)
+glm.3c <- glm.nb(Observed ~ season*site+symbstate, data=df.div.coral)
+glm.3d <- glm.nb(Observed ~ site+season*symbstate, data=df.div.coral)
+glm.3e <- glm.nb(Observed ~ season*site*symbstate, data=df.div.coral)
+
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+#null model best, glm.1a close second
+summary(glm.1a)
+#            Estimate Std. Error z value Pr(>|z|)    
+#(Intercept)  4.44526    0.19374  22.945   <2e-16 ***
+#siteNR       0.46054    0.24770   1.859    0.063 .  
+#siteRI       0.07424    0.23510   0.316    0.752    
+
+tab_model(glm.1a)
 ```
 
 ```{r GLM Chao1}
-## GLM - Chao1 ###
-#Chao1 is estimator based on abundance (estimates # of species in a community)
 
-ggplot(df.div.coral, aes(x=Chao1))+
-  geom_histogram(binwidth=20, fill="#69b3a2", color="#e9ecef", alpha=0.9)
-shapiro.test(df.div.coral$Chao1) #very non-normal
-#log transform
-#df.div.coral.log <- df.div.coral
-df.div.coral.log$Chao1 <- log(df.div.coral.log$Chao1)
-ggplot(df.div.coral.log, aes(x=Chao1))+
-  geom_histogram(binwidth=.1, fill="#69b3a2", color="#e9ecef", alpha=0.9) #looks better
-shapiro.test(df.div.coral.log$Chao1)
-# log-transformed is better
+glm.0 <- glm(Chao1 ~ 1, data=df.div.coral, family=gaussian())
+glm.1a <- glm(Chao1 ~ site, data=df.div.coral, family=gaussian())
+glm.1b <- glm(Chao1 ~ season, data=df.div.coral, family=gaussian())
+glm.1c <- glm(Chao1 ~ density_sqrt, data=df.div.coral, family=gaussian())
 
-#models:
-glm.1 <- glm(Chao1 ~ season+site+density, data=df.div.coral.log, family=Gamma())
-#summary(glm.1)
-glm.2 <- glm(Chao1 ~ season+site+density+site*density, data=df.div.coral.log, family=Gamma())
-#summary(glm.2)
-glm.3 <- glm(Chao1 ~ season+site+density+season*site, data=df.div.coral.log, family=Gamma())
-#summary(glm.3)
-glm.4 <- glm(Chao1 ~ season+site+density+season*density, data=df.div.coral.log, family=Gamma())
-#summary(glm.4)
-glm.5 <- glm(Chao1 ~ season+site+density+season*site*density, data=df.div.coral.log, family=Gamma())
-#summary(glm.5)
+glm.2a <- glm(Chao1 ~ season+site, data=df.div.coral, family=gaussian())
+glm.2b <- glm(Chao1 ~ season+density_sqrt, data=df.div.coral, family=gaussian())
+glm.2c <- glm(Chao1 ~ site+density_sqrt, data=df.div.coral, family=gaussian())
 
-AICc(glm.1, glm.2, glm.3, glm.4, glm.5)
-# glm.2 best AIC
-summary(glm.2)
-#                 Estimate Std. Error t value Pr(>|t|)    
-#(Intercept)     0.1971460  0.0171038  11.526 1.82e-13 ***
-#seasonSummer   -0.0031920  0.0095206  -0.335 0.739417    
-#siteNR          0.0372755  0.0181311   2.056 0.047312 *  
-#siteRI          0.0208391  0.0172355   1.209 0.234736    
-#density         0.0008325  0.0002785   2.990 0.005084 ** 
-#siteNR:density -0.0014071  0.0003447  -4.082 0.000246 ***
-#siteRI:density -0.0005451  0.0003045  -1.790 0.082127 .
+glm.3a <- glm(Chao1 ~ season+site+density_sqrt, data=df.div.coral, family=gaussian())
+glm.3b <- glm(Chao1 ~ season+site*density_sqrt, data=df.div.coral, family=gaussian())
+glm.3c <- glm(Chao1 ~ season*site+density_sqrt, data=df.div.coral, family=gaussian())
+glm.3d <- glm(Chao1 ~ site+season*density_sqrt, data=df.div.coral, family=gaussian())
+glm.3e <- glm(Chao1 ~ season*site*density_sqrt, data=df.div.coral, family=gaussian())
 
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+#glm.3b best
+
+summary(glm.3b)
+
+ #                    Estimate Std. Error t value Pr(>|t|)    
+#(Intercept)          32.02923   43.05733   0.744 0.461918    
+#seasonFall          -17.71509   27.60293  -0.642 0.525195    
+#siteCL              161.88566   75.50262   2.144 0.039049 *  
+#siteRI              123.88024   54.32057   2.281 0.028776 *  
+#density_sqrt          0.05763    0.01732   3.327 0.002070 ** 
+#siteCL:density_sqrt  -0.09835    0.02861  -3.438 0.001530 ** 
+#siteRI:density_sqrt  -0.08109    0.02097  -3.867 0.000458 ***
+
+tab_model(glm.3b)
 ```
 
 ```{r GLM InvSimpson}
@@ -415,523 +602,6 @@ summary(glm.2)
 
 ```
 
-
-```{r MOS test to test for curvilinear relationship}
-mod <- MOStest(df.div.coral$density,df.div.coral$Shannon)
-mod
-
-#idk how to interpret this sooo
-```
-
-
-### Old stats (ANOVA)
-
-```{r shannon stats coral}
-#Shannon
-shapiro.test(df.div$Shannon) #ns - normal distribution
-shapiro.test(df.div.coral$Shannon) #ns
-leveneTest(df.div$Shannon~site/season,data=df.div) #ns (variances equal)
-leveneTest(df.div.coral$Shannon~site/season,data=df.div.coral) #ns (variances equal)
-
-
-# Ok so t-test is for comparing two groups, (one-way) ANOVA for > 2 with one independent variable
-# Use two-way ANOVA for > 1 independent variable
-# So when comparing fall vs summer, or sym vs apo for all groups together, I need to use t-test
-# When comparing sites, use ANOVA
-# When comparing coral vs. sed vs. sw, use ANOVA
-# For two-way ANOVA, need to test for homogeneity of variance (Levene's) and independence of observations (Kruskal-Wallis) as well as normality (Shapiro); nice explainer here: https://www.scribbr.com/statistics/two-way-anova/
-
-# For two-way ANOVA:
-  # I have three independent variables (for coral):
-    # 1) Site
-    # 2) Season
-    # 3) Symb state
-  # Three options for two-way ANOVA:
-    # 1) Without interaction (just additive)
-    # 2) With interaction (x * y)
-    # 3) With blocking variable (I don't believe I have one, but maybe site?)
-  # Make models for all and then compare via aictab()
-
-aov.seas <-aov(Shannon~season, data=df.div.coral)
-aov.ss <- aov(Shannon~symbstate, data=df.div.coral)
-### Two-way (additive):
-aov.add.all <- aov(Shannon~site+season+symbstate, data=df.div.coral)
-summary(aov.add.all)
-#without site
-aov.add.seas.ss <-  aov(Shannon~season+symbstate, data=df.div.coral)
-summary(aov.add.seas.ss) #season sig (.)
-
-### Two-way (interactive):
-aov.int.all <- aov(Shannon~site*season*symbstate, data=df.div.coral)
-summary(aov.int.all) # site, season sig (.), site:season and site:symbstate sig (*)
-#without site
-aov.int.seas.ss <- aov(Shannon~season*symbstate, data=df.div.coral)
-summary(aov.int.seas.ss) #season sig (.)
-
-### Two-way (w/ site as blocking variable)
-aov.block <- aov(Shannon~season*symbstate+site, data=df.div.coral)
-summary(aov.block) #season sig (*)
-
-### Use AIC to compare models
-#install.packages("AICcmodavg")
-#library(AICcmodavg)
-
-model.set <- list(aov.seas,aov.ss,aov.add.all,aov.add.seas.ss,aov.int.all,aov.int.seas.ss,aov.block)
-model.names <- c("aov.seas", "aov.ss", "aov.add.all", "aov.add.seas.ss", "aov.int.all", "aov.int.seas.ss", "aov.block")
-aictab(model.set, modnames = model.names)
-#                 K   AICc Delta_AICc AICcWt Cum.Wt     LL
-#aov.seas         3  98.92       0.00   0.55   0.55 -46.14
-#aov.add.seas.ss  4 101.30       2.37   0.17   0.71 -46.09
-#aov.int.seas.ss  5 102.73       3.80   0.08   0.79 -45.51
-#aov.add.all      6 102.99       4.06   0.07   0.86 -44.26
-#aov.ss           3 103.03       4.11   0.07   0.93 -48.19
-#aov.block        7 104.51       5.58   0.03   0.97 -43.56
-#aov.int.all     11 104.58       5.66   0.03   1.00 -36.74
-
-### Conclusion: season is the best predictor of diversity, with additive model excluding site second best (Shannon~season+symbstate)
-### However, this data includes CL, which might be skewing the results since it only has one season of data. Going to redo this analysis below excluding CL.
-
-```
-
-```{r anova without CL}
-aov.seas <-aov(Shannon~season, data=df.div.coral.NR.RI)
-summary(aov.seas) #ns
-aov.ss <- aov(Shannon~symbstate, data=df.div.coral.NR.RI)
-summary(aov.ss) #ns
-### Two-way (additive):
-aov.add.all <- aov(Shannon~site+season+symbstate, data=df.div.coral.NR.RI)
-summary(aov.add.all) #symbstate sig (.)
-#without site
-aov.add.seas.ss <-  aov(Shannon~season+symbstate, data=df.div.coral.NR.RI)
-summary(aov.add.seas.ss) #ns
-
-### Two-way (interactive):
-aov.int.all <- aov(Shannon~site*season*symbstate, data=df.div.coral.NR.RI)
-summary(aov.int.all) #season (*), site:season (*), site:symbstate(**)
-#without site
-aov.int.seas.ss <- aov(Shannon~season*symbstate, data=df.div.coral.NR.RI)
-summary(aov.int.seas.ss) #ns
-
-### Two-way (w/ site as blocking variable)
-aov.block <- aov(Shannon~season*symbstate+site, data=df.div.coral.NR.RI)
-summary(aov.block) #ns
-
-### Use AIC to compare models
-
-model.set <- list(aov.seas,aov.ss,aov.add.all,aov.add.seas.ss,aov.int.all,aov.int.seas.ss,aov.block)
-model.names <- c("aov.seas", "aov.ss", "aov.add.all", "aov.add.seas.ss", "aov.int.all", "aov.int.seas.ss", "aov.block")
-aictab(model.set, modnames = model.names)
-
-###Best model is aov.seas (confusing b/c the summary didn't show significance?), second best is interactive including site
-
-```
-
-
-
-
-```{r wilcox tests, eval=FALSE}
-# I don't think I should be doing a wilcox test because that is for non-parametric data, and my data is normally distributed
-#stats by season (coral):
-wilcox.test(Shannon~season, data=df.div.coral) # < 0.05 *
-summary(aov(Shannon~season,data=df.div.coral)) # < 0.05 *
-wilcox.test(Shannon~season,data=df.div.coral.NR) #ns
-summary(aov(Shannon~season,data=df.div.coral.NR)) #ns
-wilcox.test(Shannon~season,data=df.div.coral.RI) # < 0.01 **
-summary(aov(Shannon~season,data=df.div.coral.RI)) # < 0.01 **
-#stats symb state
-wilcox.test(Shannon~symbstate,data=df.div.coral) #ns
-summary(aov(Shannon~symbstate,data=df.div.coral)) #ns
-wilcox.test(Shannon~symbstate,data=df.div.coral.NR) # < 0.1 .
-summary(aov(Shannon~symbstate,data=df.div.coral.NR)) # < 0.5 *
-wilcox.test(Shannon~symbstate,data=df.div.coral.RI) #ns
-summary(aov(Shannon~symbstate,data=df.div.coral.RI)) # < 0.1 .
-wilcox.test(Shannon~symbstate,data=df.div.coral.CL) #ns
-summary(aov(Shannon~symbstate,data=df.div.coral.CL)) #ns
-```
-
-```{r shannon no CL stats}
-shapiro.test(df.div.coral.NR.RI$Shannon) #ns - data normal
-leveneTest(df.div.coral.NR.RI$Shannon~site/season,data=df.div.coral.NR.RI) #ns (variances equal)
-a.div <- aov(Shannon~site/season,data=df.div.coral.NR.RI)
-summary(a.div) #site:season significant (<0.05)
-a.div.symb <- aov(Shannon~symbstate/site,data=df.div.coral.NR.RI)
-summary(a.div.symb) #symbstate:site significant (<0.05)
-a.div.symb.seas <- aov(Shannon~symbstate/season,data=df.div.coral.NR.RI)
-summary(a.div.symb.seas) #ns
-TukeyHSD(a.div) # ns
-TukeyHSD(a.div.symb) # sig <0.1 for symbiotic:RI-symbiotic:NR 
-TukeyHSD(a.div.symb.seas) #ns
-
-#stats by season (coral):
-wilcox.test(Shannon~symbstate,data=df.div.coral.NR.RI) #ns
-wilcox.test(Shannon~season,data=df.div.coral.NR.RI) # ns
-summary(aov(Shannon~season,data=df.div.coral.NR.RI)) #ns
-wilcox.test(Shannon~symbstate,data=df.div.coral.NR.RI) # ns
-summary(aov(Shannon~symbstate,data=df.div.coral.NR.RI)) #ns
-
-```
-
-
-### Simpson
-
-```{r simpson site}
-gg.site.sim <- ggplot(df.div.coral,aes(x=site,y=InvSimpson,color=site))+
-  geom_boxplot(outlier.shape=NA)+
-  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
-  geom_jitter(alpha=0.5)+
-  ylab("Inv. Simpson index")+
-  xlab("Site")+
-  theme_cowplot()+
-  theme(legend.position="none")
-gg.site.sim
-```
-
-```{r simpson season}
-gg.season.sim <- ggplot(df.div.coral,aes(x=season,y=InvSimpson,color=season))+
-  geom_boxplot(outlier.shape=NA)+
-  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
-  geom_jitter(alpha=0.5)+
-  ylab("Inv. Simpson index")+
-  xlab("Site")+
-  theme_cowplot()+
-  theme(legend.position="none")
-gg.season.sim
-```
-
-
-```{r simpson stats}
-#simpson
-shapiro.test(df.div.coral$InvSimpson) #not normal
-df.div.coral$si.log <- log(df.div.coral$InvSimpson) 
-shapiro.test(df.div.coral$si.log) #normal, ns
-
-##season
-leveneTest(df.div.coral$si.log~site/season,data=df.div.coral) #ns
-a.div.season.coral <- aov(si.log~site/season,data=df.div.coral)
-summary(a.div.season.coral) #site & site:season significant (<.05 *)
-TukeyHSD(a.div.season.coral) #RI-summer:RI-Fall sig (<0.05 *)
-
-##symbstate
-leveneTest(df.div.coral$si.log~site/symbstate,data=df.div.coral) #ns
-a.div.symb.coral <- aov(si.log~site/symbstate,data=df.div.coral)
-summary(a.div.symb.coral) #site significant (<0.1 .)
-TukeyHSD(a.div.symb.coral) #ns
-
-#stats by site (season):
-wilcox.test(InvSimpson~season,data=df.div.coral) # < 0.01 **
-wilcox.test(InvSimpson~season,data=df.div.coral.NR.RI) # < 0.05 *
-wilcox.test(InvSimpson~season,data=df.div.coral.NR) #ns
-summary(aov(InvSimpson~season,data=df.div.coral.NR)) #ns
-wilcox.test(InvSimpson~season,data=df.div.coral.RI) # < 0.05 *
-summary(aov(InvSimpson~season,data=df.div.coral.RI)) # < 0.05 *
-
-#stats by site (symb state):
-wilcox.test(InvSimpson~symbstate,data=df.div.coral) # ns
-wilcox.test(InvSimpson~symbstate,data=df.div.coral.NR) # < 0.01 **
-summary(aov(InvSimpson~symbstate,data=df.div.coral.NR)) # < 0.05 *
-wilcox.test(InvSimpson~symbstate,data=df.div.coral.RI) # ns
-summary(aov(InvSimpson~symbstate,data=df.div.coral.RI)) # < 0.1 .
-wilcox.test(InvSimpson~symbstate,data=df.div.coral.CL) # ns
-summary(aov(InvSimpson~symbstate,data=df.div.coral.CL)) # ns
-```
-
-
-### Richness
-
-```{r richness site}
-gg.site.obs <- ggplot(df.div.coral,aes(x=site,y=Observed,color=site))+
-  geom_boxplot(outlier.shape=NA)+
-  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
-  geom_jitter(alpha=0.5)+
-  ylab("ASV richness")+
-  xlab("Site")+
-  theme_cowplot()+
-  theme(legend.position="none")
-gg.site.obs
-```
-```{r richness season}
-gg.season.obs <- ggplot(df.div.coral, aes(x=season,y=Observed,color=season,shape=season))+
-  geom_boxplot(outlier.shape=NA)+
-  xlab("Reef zone")+
-  ylab("ASV richness")+
-  theme_cowplot()+
-  scale_shape_manual(values=c(16,15),labels=c("Fall","Summer"))+
-  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Fall","Summer"))+
-  theme(legend.position="none")+
-  geom_jitter(alpha=0.5)+
-  facet_wrap(~site)+
-  scale_x_discrete(labels=c("Fall","Summer"))
-gg.season.obs
-```
-```{r richness symbstate}
-gg.symb.obs <- ggplot(df.div.coral, aes(x=symbstate,y=Observed,color=symbstate,shape=symbstate))+
-  geom_boxplot(outlier.shape=NA)+
-  xlab("Reef zone")+
-  ylab("ASV richness")+
-  theme_cowplot()+
-  scale_colour_manual(values=c("lightcyan3","coral4"),labels=c("Apo","Symb")) +
-  scale_shape_manual(values=c(16,15),labels=c("Apo","Symb"))+
-  theme(legend.position="none")+
-  geom_jitter(alpha=0.5)+
-  facet_wrap(~site)+
-  scale_x_discrete(labels=c("Apo","Symb"))
-gg.symb.obs
-```
-```{r richness symbstate season}
-gg.season.symb.obs <- ggplot(df.div.coral, aes(x=season,y=Observed,color=symbstate))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  xlab("Season")+
-  ylab("ASV Richness")+
-  #scale_x_discrete(labels=c("Fall","Summer"))+
-  scale_colour_manual(values=c("lightcyan3","coral4")) +
-  theme_cowplot()+
-  guides(season = "none")+
-  labs(color = "Symbiotic State")+
-  #geom_jitter(alpha=0.5)+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-gg.season.symb.obs
-```
-
-
-```{r richness stats}
-#otu richness
-shapiro.test(df.div.coral$Observed) # p-value = 1.059e-05 ???
-df.div.coral$obs.log <- log(df.div.coral$Observed)
-shapiro.test(df.div.coral$obs.log) #p-value = 0.1021
-leveneTest(df.div.coral$obs.log~site/season,data=df.div.coral) 
-a.div <- aov(obs.log~site/season,data=df.div.coral)
-summary(a.div) #ns         
-TukeyHSD(a.div) #ns
-
-#stats by site (season):
-wilcox.test(Observed~season,data=df.div.coral.NR) #ns
-summary(aov(Observed~season,data=df.div.coral.NR)) #ns
-wilcox.test(Observed~season,data=df.div.coral.RI) #ns
-summary(aov(Observed~season,data=df.div.coral.RI)) #ns
-
-#stats by site (symbstate):
-wilcox.test(Observed~symbstate,data=df.div.coral.NR) #ns
-summary(aov(Observed~symbstate,data=df.div.coral.NR)) #ns
-wilcox.test(Observed~symbstate,data=df.div.coral.RI) # < 0.05 *
-summary(aov(Observed~symbstate,data=df.div.coral.RI)) # < 0.05 *
-wilcox.test(Observed~symbstate,data=df.div.coral.CL) #ns
-summary(aov(Observed~symbstate,data=df.div.coral.CL)) #ns
-```
-
-
-### Evenness
-
-```{r evenness site}
-gg.site.eve <- ggplot(df.div.coral,aes(x=site,y=even,color=site))+
-  geom_boxplot(outlier.shape=NA)+
-  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
-  geom_jitter(alpha=0.5)+
-  ylab("Evenness")+
-  xlab("Site")+
-  theme_cowplot()+
-  theme(legend.position="none")
-gg.site.eve
-```
-
-```{r evenness season}
-gg.season.eve <- ggplot(df.div.coral, aes(x=season, y=even,color=season,shape=season))+
-  geom_boxplot(outlier.shape=NA)+
-  xlab("Season")+
-  ylab("Evenness")+
-  theme_cowplot()+
-  scale_shape_manual(values=c(16,15),labels=c("Fall","Summer"))+
-  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"),labels=c("Fall","Summer"))+
-  #guides(color=guide_legend(title="Reef zone"),shape=guide_legend(title="Reef zone"))+
-  theme(legend.position="none")+
-  geom_jitter(alpha=0.5)+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-  #scale_x_discrete(labels=c("BR","FR"))
-gg.season.eve
-```
-
-```{r evenness symbstate}
-gg.symb.eve <- ggplot(df.div.coral, aes(x=symbstate, y=even,color=symbstate,shape=symbstate))+
-  geom_boxplot(outlier.shape=NA)+
-  xlab("Symbiotic State")+
-  ylab("Evenness")+
-  theme_cowplot()+
-  scale_shape_manual(values=c(16,15),labels=c("Apo","Sym"))+
-  scale_colour_manual(values=c("lightcyan3","coral4"),labels=c("Apo","Symb")) +
-  theme(legend.position="none")+
-  geom_jitter(alpha=0.5)+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-gg.symb.eve
-```
-```{r evenness symbstate season}
-gg.season.symb.eve <- ggplot(df.div.coral, aes(x=season,y=even,color=symbstate))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  xlab("Season")+
-  ylab("Evenness")+
-  #scale_x_discrete(labels=c("Fall","Summer"))+
-  scale_colour_manual(values=c("lightcyan3","coral4")) +
-  theme_cowplot()+
-  guides(season = "none")+
-  labs(color = "Symbiotic State")+
-  #geom_jitter(alpha=0.5)+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-gg.season.symb.eve
-```
-
-
-
-```{r evenness stats}
-#evenness
-shapiro.test(df.div.coral$even) # < 0.05 *
-leveneTest(df.div.coral$even~site*season,data=df.div.coral) #ns
-leveneTest(df.div.coral$even~site*symbstate,data=df.div.coral) #ns
-
-# aov season
-a.div <- aov(even~site*season,data=df.div.coral)
-summary(a.div)
-#           Df  Sum Sq Mean Sq F value  Pr(>F)   
-#site         2 0.07688 0.03844   5.281 0.00975 **
-#season       1 0.06191 0.06191   8.505 0.00606 **
-#site:season  1 0.03761 0.03761   5.166 0.02910 * 
-#Residuals   36 0.26206 0.00728 
-TukeyHSD(a.div) #ns
-
-#aov site*symbstate
-a.div <- aov(even~symbstate,data=df.div.coral)
-summary(a.div) #ns
-a.div <- aov(even~site,data=df.div.coral)
-summary(a.div) # < 0.05 *
-a.div <- aov(even~site*symbstate,data=df.div.coral)
-summary(a.div) #ns
-TukeyHSD(a.div) # NR-CL and RI-CL significant (<0.05 *)
-
-#stats by site (season):
-wilcox.test(even~season,data=df.div.coral.NR.RI) # < 0.01 ** becomes sig once CL taken out
-summary(aov(even~season,data=df.div.coral.NR.RI)) # < 0.01 **
-wilcox.test(even~season,data=df.div.coral.NR) #ns
-summary(aov(even~season,data=df.div.coral.NR)) #ns
-wilcox.test(even~season,data=df.div.coral.RI) #ns
-summary(aov(even~season,data=df.div.coral.RI)) # 0 *** wow - all being driven by RI, not NR, but that's probably bc very few samples from NR for fall
-
-#stats by site (symbstate):
-wilcox.test(even~symbstate,data=df.div.coral.NR) # < 0.01 ** sig effect of symb state evenness @ NR but not RI or CL!
-summary(aov(even~symbstate,data=df.div.coral.NR)) # < 0.01 **
-wilcox.test(even~symbstate,data=df.div.coral.RI) #ns
-summary(aov(even~symbstate,data=df.div.coral.RI)) #ns
-wilcox.test(even~symbstate,data=df.div.coral.CL) #ns (p = 1!)
-summary(aov(even~symbstate,data=df.div.coral.CL)) #ns
-```
-
-
-## Phylogenetic diversity (Faith's D)
-
-Tutorial from dada2 author [here](https://f1000research.com/articles/5-1492/v2)
-
-```{r packages phylo d, eval=FALSE}
-#install.packages('devtools')
-#library(devtools)
-#devtools::install_github('twbattaglia/btools')
-#library(btools)
-```
-
-
-## Alpha metrics {.tabset}
- 
-Looking at everything individually, more of a synthesis below
-
-### Shannon
-
-```{r shannon site}
-gg.site.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=site))+
-  geom_boxplot(outlier.shape=NA)+
-  scale_color_manual(values=c("darkslategray3","darkslategray4","#000004"))+
-  geom_jitter(alpha=0.5)+
-  ylab("Shannon index")+
-  xlab("Site")+
-  theme_cowplot()+
-  theme(legend.position="none")
-gg.site.sha
-```
-
-
-```{r shannon coral}
-#plotting coral season & symb state
-gg.season.symb <- ggplot(df.div.coral, aes(x=season,y=Shannon,color=symbstate))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  xlab("Season")+
-  ylab("Shannon index")+
-  #scale_x_discrete(labels=c("Fall","Summer"))+
-  scale_colour_manual(values=c("lightcyan3","coral4")) +
-  theme_cowplot()+
-  guides(season = "none")+
-  labs(color = "Symbiotic State")+
-  #geom_jitter(alpha=0.5)+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-gg.season.symb
-
-```
-```{r shannon sedsw}
-#plotting sed and sw
-gg.sedsw <- ggplot(df.div.ss, aes(x=season,y=Shannon,color=season))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(shape=type), size = 3, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  xlab("Season")+
-  ylab("Shannon index")+
-  #scale_x_discrete(labels=c("Fall","Summer"))+
-  scale_colour_manual(values=c("#ED7953FF","#8405A7FF"))+
-  theme_cowplot()+
-  guides(color = "none")+
-  labs(shape = "Type")+
-  facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
-
-gg.sedsw
-```
-
-```{r}
-gg.shannon.summer <- ggplot(df.div.summer, aes(x=site,y=Shannon,color=type))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=type), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  scale_colour_manual(values=c("darksalmon","paleturquoise3","chocolate4")) +
-  ylab("Shannon Index")+
-  xlab("Site")+
-  #labs(color = "Symbiotic State")+
-  theme_cowplot() +
-  scale_x_discrete(limits=c('NR','RI', 'CL')) +
-  theme(legend.position="none")+
-  ylim(min_value=0, max_value=6.5)+
-  ggtitle("a) Summer")
-
-gg.shannon.fall <- ggplot(df.div.fall, aes(x=site,y=Shannon,color=type))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=type), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  scale_colour_manual(name="Type",values=c("darksalmon","paleturquoise3","chocolate4"), labels=c("Coral","Seawater","Sediment")) +
-  ylab("Shannon Index")+
-  xlab("Site")+
-  #labs(color = "Symbiotic State")+
-  theme_cowplot() +
-  scale_x_discrete(limits=c('NR','RI'))+
-  ylim(min_value=0, max_value=6.5)+
-  ggtitle("b) Fall")
-
-plot_grid(gg.shannon.summer, gg.shannon.fall, axis="bt",align="hv")
-```
-
-
-```{r shannon symb state}
-gg.ss.sha <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate))+
-  geom_boxplot(outlier.shape=NA)+
-  geom_point(aes(color=symbstate), size = 2, alpha = 0.3, position=position_jitterdodge(jitter.width=0.2)) +
-  scale_colour_manual(values=c("lightcyan3","coral4")) +
-  ylab("Shannon Index")+
-  xlab("Site")+
-  labs(color = "Symbiotic State")+
-  theme_cowplot() +
-  scale_x_discrete(limits=c('NR','RI', 'CL'))
-  #theme(legend.position="none")
-gg.ss.sha
-```
 
 
 ## Playing with microshades
@@ -1124,4 +794,127 @@ plot.rare +
 
 
 
+### Faith's D
+
+
+## Phylogenetic diversity (Faith's D)
+
+Tutorial from dada2 author [here](https://f1000research.com/articles/5-1492/v2)
+
+```{r packages phylo d, eval=FALSE}
+#install.packages('devtools')
+#library(devtools)
+#devtools::install_github('twbattaglia/btools')
+#library(btools)
+```
+
+
+(I'm not running the following chunk every time, because only need to generate the file once)
+
+```{r fasta file generation, eval=FALSE}
+raw.otu  <- as.matrix(ps.rare@otu_table)
+raw.taxa <- data.frame(ps.rare@tax_table)
+rownames(raw.taxa)==colnames(raw.otu)
+ 
+colnames(raw.otu) <- raw.taxa$V8
+ids <- rownames(raw.taxa)
+
+path="~/oculina/diversity/analyze_asv_table/oculina16s_rev.less.fasta"
+uniquesToFasta(raw.otu, path, ids = ids, mode = "w", width = 20000)
+```
+
+
+Actual analysis part: 
+
+(I'm not running the following chunk every time, because only need to generate the files once)
+
+```{r phylo d, eval=FALSE}
+seqs <- getSequences("oculina16s_rev.less.fasta")
+names(seqs) <- seqs # This propagates to the tip labels of the tree
+saveRDS(seqs,file="phylo.seqs.less.rds")
+#also doing the same thing with a .fasta file post-trimming to see if it makes a difference:
+#seqs <- getSequences("mr16s_rev.cleanest.trimmed copy.fasta")
+#names(seqs) <- seqs # This propagates to the tip labels of the tree
+#saveRDS(seqs,file="phylo.seqs.rev.cleanest.trimmed.rds")
+```
+
+
+Doing this next part in the cluster because it takes forever
+
+```{bash terminal phylo things, eval=FALSE}
+##script phylo.R looks like this now:
+# library(dada2)
+# library(phangorn)
+# library(DECIPHER)
+#
+# seqs <- readRDS("./phylo.seqs.rev.cleanest.rds")
+# alignment <- AlignSeqs(DNAStringSet(seqs), anchor=NA)
+# phang.align <- phyDat(as(alignment, "matrix"), type="DNA")
+# dm <- dist.ml(phang.align)
+# treeNJ <- NJ(dm) # Note, tip order != sequence order
+# fit = pml(treeNJ, data=phang.align)
+#
+# ## negative edges length changed to 0!
+# 
+# fitGTR <- update(fit, k=4, inv=0.2)
+# fitGTR <- optim.pml(fitGTR, model="GTR", optInv=TRUE, optGamma=TRUE,
+#                     rearrangement = "stochastic", control = pml.control(trace = 0))
+# detach("package:phangorn", unload=TRUE)
+# saveRDS(fitGTR, file="./phylo.fitgtr.rev.cleanest.rds")
+
+### In terminal:
+#nano phylo.sh #to create and edit text file
+#phylo.sh looks like this: 
+  # #!/bin/bash
+  # #SBATCH -p general
+  # #SBATCH -t 1-
+  # #SBATCH -N 1
+  # #SBATCH -n 1
+  # #SBATCH --mem=8gb
+  # #SBATCH --output <phylo.fitgtr.less.rds>
+  
+  # module add r
+  # module add rstudio
+  
+  # Rscript phylo.R
+
+##saved output as: phylo.fitgtr.less.rds
+```
+
+Back in R
+```{r}
+#BiocManager::install("DESeq2")
+#BiocManager::install("genefilter")
+library(DESeq2)
+library(genefilter)
+#devtools::install_github('twbattaglia/btools')
+library(btools)
+setwd("~/oculina/diversity/analyze_asv_table")
+fitGTR <- readRDS("phylo.fitgtr.less.rds")
+
+#new phyloseq object:
+taxa.less <- data.frame(ps.less@tax_table)
+seqtab.less <- data.frame(ps.less@otu_table)
+taxa.less$sqs <- row.names(taxa.less) 
+taxa.less$sqs == colnames(seqtab.less)
+row.names(taxa.less) <- taxa.less$V8
+colnames(seqtab.less) <- taxa.less$V8
+row.names(taxa.less) == colnames(seqtab.less)
+taxa.less <- as.matrix(taxa.less)
+ps.less.tree <- phyloseq(otu_table(seqtab.less, taxa_are_rows = FALSE),
+                         sample_data(samdf),
+                         tax_table(taxa.less),
+                         phy_tree(fitGTR$tree))
+
+pd.div <- estimate_pd(ps.less.tree)
+row.names(df.div) <- df.div$id
+df.div.pd <- merge(df.div,pd.div,by=0)
+
+#saveRDS(ps.less.tree,file="ps.less.tree.Rdata")
+## saving diversity data frame ##
+#save & read back in as needed
+#write.csv(df.div.pd,file="oculina16s_diversity_less.csv") #saving
+#df.div <- read.csv("oculina16s_diversity_less.csv",row.names=1,header=TRUE) #reading back in
+
+```
 
