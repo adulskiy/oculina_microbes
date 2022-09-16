@@ -29,6 +29,8 @@ library(stats)
 library(MuMIn)
 library(sjPlot)
 library(webshot)
+library(FSA)
+library(flextable)
 ```
 
 
@@ -45,7 +47,7 @@ load("~/oculina/data/taxa2.rev.Rdata")
 ## Phyloseq objects
 
 ```{r making phyloseq objects, eval=FALSE}
-seqtab.rare <- read.csv("oculina16s_rev_seqtab.rare.2k",row.names=1)
+seqtab.rare <- read.csv("~/oculina/data/oculina16s_rev_seqtab.rare.2k",row.names=1)
 ps.rare <- phyloseq(otu_table(seqtab.rare, taxa_are_rows=FALSE), 
                     sample_data(samdf), 
                     tax_table(taxa2))
@@ -80,7 +82,7 @@ ps.trim
 ```{r read in ps objects}
 setwd("~/oculina/data")
 #load("ps.clean.Rdata")
-load("ps.rare.rev.Rdata")
+load("~/oculina/data/ps.rare.rev.Rdata")
 #load("ps.rare.trim.Rdata")
 #load("ps.trim.Rdata")
 ```
@@ -99,6 +101,13 @@ df$id <- rownames(df)
 df.div <- merge(df,samdf,by="id") #add sample data
 #shannon diversity divided by species richness
 df.div$even <- df.div$Shannon/(log(df.div$Observed))
+df.div$season <- as.factor(df.div$season)
+df.div$site <- as.factor(df.div$site)
+df.div$type <- as.factor(df.div$type)
+df.div$season <- relevel(df.div$season, ref="Summer")
+#df.div$site <- relevel(df.div$site, ref="NR")
+df.div$site <- factor(df.div$site, levels=c("NR","RI","CL"))
+
 df.div.coral <- subset(df.div, type=="coral")
 df.div.NR <- subset(df.div,site=="NR")
 df.div.RI <- subset(df.div,site=="RI")
@@ -113,6 +122,69 @@ df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
 df.div.coral$density <- as.numeric(df.div.coral$density)
 #skewness(df.div.coral$density) #very right skewed (1.93)
 df.div.coral$density_sqrt <- sqrt(df.div.coral$density)
+
+
+```
+
+```{r Summary statistics all types}
+library(gtsummary)
+
+# all types
+df1 <- df.div %>% select(Shannon, even, Observed, Chao1, type)
+tbl.all.site <- tbl_summary(df1, by = type) %>%
+  add_p(test = Shannon ~ "aov") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+aov.sha <- (aov(Shannon ~ type, data=df1))
+TukeyHSD(aov.sha)
+dunnTest(even~type, data=df1, method="bonferroni") #coral-sed, sw-sed sig
+dunnTest(Observed~type, data=df1, method="bonferroni") #all sig
+dunnTest(Chao1~type, data=df1, method="bonferroni") #coral-sed sig
+
+tbl.all.site %>%
+  as_flex_table() %>%
+  save_as_image(path ="~/oculina/diversity/figures/tbl.all.site.png") # use extensions .html .tex .ltx .rtf
+
+```
+
+```{r summary statistics coral}
+
+
+df1 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, site)
+tbl.coral.site <- tbl_summary(df1, by = site) %>%
+  add_p(test = Shannon ~ "aov") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+aov.sha <- (aov(Shannon ~ site, data=df1))
+TukeyHSD(aov.sha)
+
+#post hoc test for kruskall wallis is the dunn test
+#library(FSA)
+dunnTest(even~site, data=df1, method="bonferroni") #CL-RI sig dif, others not
+
+df2 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, season)
+tbl.coral.seas <- tbl_summary(df2, by = season) %>%
+  add_p() %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df3 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, symbstate)
+tbl.coral.ss <- tbl_summary(df3, by = symbstate) %>%
+  add_p() %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+tbl.coral.merge <-
+  tbl_merge(
+    tbls = list(tbl.coral.site, tbl.coral.seas, tbl.coral.ss),
+    tab_spanner = c("**Site**", "**Season**", "**Symbiotic State**")
+  )
+
+tbl.coral.merge %>%
+  as_flex_table() %>%
+  save_as_image(path ="~/oculina/diversity/figures/tbl.alphadivstats.coral.merge.png") # use extensions .html .tex .ltx .rtf
+
 ```
 
 ### Cross validation?
@@ -140,7 +212,10 @@ MSE2 <- pred2 %>% group_by(Run) %>%
 
 mean(MSE1$MSE)
 mean(MSE2$MSE)
+
+
 ```
+
 
 
 ### Specificity analysis for symbiont density
@@ -194,11 +269,6 @@ plot_specs_violin(specs_list, label_cex=0.6, cols="red") #all nonsig! lol
 ### GLMS - Alpha Diversity Indices
 
 ```{r compare types (coral, sed, sw)}
-df.div$season <- as.factor(df.div$season)
-df.div$site <- as.factor(df.div$site)
-df.div$type <- as.factor(df.div$type)
-df.div$season <- relevel(df.div$season, ref="Summer")
-df.div$site <- relevel(df.div$site, ref="NR")
 
 str(df.div)
 
@@ -209,7 +279,7 @@ glm.3 <- glm(Shannon ~ type + season * site, data=df.div, family=gaussian)
 glm.4 <- glm(Shannon ~ type * season + site, data=df.div, family=gaussian)
 glm.5 <- glm(Shannon ~ type * season * site, data=df.div, family=gaussian)
 
-AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
+AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5) #AICc 161.69
 #glm.1 is best model
 summary(glm.1)
 #           Estimate Std. Error t value Pr(>|t|)    
@@ -225,12 +295,16 @@ summary(glm.1)
 tab_model(glm.1) #makes a nice looking table
 tab_model(glm.1, file="./stats/sha.types.glm.gauss.html")
 
-webshot("./stats/sha.types.glm.gauss.html", "./stats/sha.types.glm.gauss.png")
-
+#cross validation
+#library(boot)
+cv.err.10 <- cv.glm(df.div, glm.1, K=10)$delta
+muhat <- fitted(glm.1)
+diag <- glm.diag(glm.1)
+(cv.err <- mean((glm.1$y - muhat)^2/(1 - diag$h)^2)) #0.628
 
 ### Evenness - all types
 
-glm.0 <- glm(even ~ 1, data=df.div, family=gaussian())
+glm.0 <- glm(even ~ 1, data=df.div, family=gaussian)
 glm.1 <- glm(even ~ type, data=df.div, family=gaussian)
 glm.2 <- glm(even ~ type + season + site, data=df.div, family=gaussian)
 glm.3 <- glm(even ~ type + season * site, data=df.div, family=gaussian)
@@ -238,7 +312,7 @@ glm.4 <- glm(even ~ type * season + site, data=df.div, family=gaussian)
 glm.5 <- glm(even ~ type * season * site, data=df.div, family=gaussian)
 
 AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
-# glm.4 best
+# glm.4 best, AIC -144.84
 summary(glm.4)
 #                         Estimate Std. Error t value Pr(>|t|)    
 #(Intercept)                0.81560    0.03153  25.870  < 2e-16 ***
@@ -252,16 +326,17 @@ summary(glm.4)
 
 tab_model(glm.4)
 ### Richness - all types
+library(MASS)
 
-glm.0 <- glm(Observed ~ 1, data=df.div, family=gaussian())
-glm.1 <- glm(Observed ~ type, data=df.div, family=gaussian)
-glm.2 <- glm(Observed ~ type + season + site, data=df.div, family=gaussian)
-glm.3 <- glm(Observed ~ type + season * site, data=df.div, family=gaussian)
-glm.4 <- glm(Observed ~ type * season + site, data=df.div, family=gaussian)
-glm.5 <- glm(Observed ~ type * season * site, data=df.div, family=gaussian)
+glm.0 <- glm.nb(Observed ~ 1, data=df.div)
+glm.1 <- glm.nb(Observed ~ type, data=df.div)
+glm.2 <- glm.nb(Observed ~ type + season + site, data=df.div)
+glm.3 <- glm.nb(Observed ~ type + season * site, data=df.div)
+glm.4 <- glm.nb(Observed ~ type * season + site, data=df.div)
+glm.5 <- glm.nb(Observed ~ type * season * site, data=df.div)
 
 AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
-#glm.1 best (dif from raw analysis, where glm.2 was best)
+#glm.1 best (dif from raw analysis, where glm.2 was best), AICc 778.5
 summary(glm.1)
 
 #             Estimate Std. Error t value Pr(>|t|)    
@@ -269,6 +344,21 @@ summary(glm.1)
 #typeseawater    54.58      35.82   1.524    0.133    
 #typesediment   256.61      36.94   6.947 2.31e-09 ***
 
+tab_model(glm.1)
+
+
+### Chao1 - all types
+
+glm.0 <- glm(Chao1 ~ 1, data=df.div, family=gaussian)
+glm.1 <- glm(Chao1 ~ type, data=df.div, family=gaussian)
+glm.2 <- glm(Chao1 ~ type + season + site, data=df.div, family=gaussian)
+glm.3 <- glm(Chao1 ~ type + season * site, data=df.div, family=gaussian)
+glm.4 <- glm(Chao1 ~ type * season + site, data=df.div, family=gaussian)
+glm.5 <- glm(Chao1 ~ type * season * site, data=df.div, family=gaussian)
+
+AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
+# glm.1 best, AIC 886.0
+summary(glm.1)
 tab_model(glm.1)
 ```
 
@@ -283,7 +373,9 @@ tab_model(glm.1)
 df.div.coral$season <- as.factor(df.div.coral$season)
 df.div.coral$season <- relevel(df.div.coral$season, ref="Summer")
 df.div.coral$site <- as.factor(df.div.coral$site)
-df.div.coral$site <- relevel(df.div.coral$site, ref="NR")
+#df.div.coral$site <- relevel(df.div.coral$site, ref="NR")
+df.div.coral$site <- factor(df.div.coral$site, levels=c("NR","RI","CL"))
+
 #df.div.coral$density <- as.numeric(df.div.coral$density)
 #df.div.coral$density_sqrt <- sqrt(df.div.coral$density)
 df.div.coral$density_sqrt <- as.numeric(df.div.coral$density_sqrt)
@@ -292,6 +384,7 @@ library(stats)
 #install.packages("MuMIn")
 library(MuMIn)
 #library(lmer)
+set.seed(1)
 
 glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=gaussian())
 glm.1a <- glm(Shannon ~ site, data=df.div.coral, family=gaussian())
@@ -308,7 +401,7 @@ glm.3c <- glm(Shannon ~ season*site+density_sqrt, data=df.div.coral, family=gaus
 glm.3d <- glm(Shannon ~ site+season*density_sqrt, data=df.div.coral, family=gaussian())
 glm.3e <- glm(Shannon ~ season*site*density_sqrt, data=df.div.coral, family=gaussian())
 
-AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e) #90.27
 
 summary(glm.3b)
  #                     Estimate Std. Error t value Pr(>|t|)    
@@ -321,10 +414,28 @@ summary(glm.3b)
 #siteRI:density_sqrt  0.0003175  0.0002124   1.495 0.143860    
 
 
+#check for collinearity....
+#library(mctest)
+omcdiag(glm.3b) #chisq significant, indicates multicolinnearity
+#check which variables collinear
+imcdiag(glm.3b) # shows all except season collinear
+
+#library(faraway)
+vif(glm.3b)
+
+
 tab_model(glm.3b, digits=4)
 
-#trying with symbstate instead of density:
+#cross validation
+#library(boot)
+cv.err <- cv.glm(df.div.coral, glm.3b)$delta #leave one out cross validation if you don't set K (I think)
+cv.err.10 <- cv.glm(df.div.coral, glm.3b, K=10)$delta
 
+muhat <- fitted(glm.3b)
+coral.diag <- glm.diag(glm.3b)
+(cv.err <- mean((glm.3b$y - muhat)^2/(1 - coral.diag$h)^2))
+
+#trying with symbstate instead of density:
 glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=gaussian())
 glm.1a <- glm(Shannon ~ site, data=df.div.coral, family=gaussian())
 glm.1b <- glm(Shannon ~ season, data=df.div.coral, family=gaussian())
@@ -525,7 +636,7 @@ AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,gl
 
 summary(glm.3b)
 
- #                    Estimate Std. Error t value Pr(>|t|)    
+#                     Estimate Std. Error t value Pr(>|t|)    
 #(Intercept)          32.02923   43.05733   0.744 0.461918    
 #seasonFall          -17.71509   27.60293  -0.642 0.525195    
 #siteCL              161.88566   75.50262   2.144 0.039049 *  
@@ -533,6 +644,17 @@ summary(glm.3b)
 #density_sqrt          0.05763    0.01732   3.327 0.002070 ** 
 #siteCL:density_sqrt  -0.09835    0.02861  -3.438 0.001530 ** 
 #siteRI:density_sqrt  -0.08109    0.02097  -3.867 0.000458 ***
+
+effectsize::standardize_parameters(glm.3b, exp = TRUE)
+#Parameter           | Std. Coef. |       95% CI
+#-----------------------------------------------
+#(Intercept)         |       1.66 | [1.04, 2.66]
+#seasonFall          |       0.82 | [0.44, 1.51]
+#siteCL              |       0.52 | [0.25, 1.08]
+#siteRI              |       0.52 | [0.29, 0.95]
+#density_sqrt        |       2.42 | [1.44, 4.06]
+#siteCL:density_sqrt |       0.22 | [0.09, 0.52]
+#siteRI:density_sqrt |       0.29 | [0.15, 0.54]
 
 tab_model(glm.3b)
 ```
@@ -792,6 +914,154 @@ plot.rare +
   
 ```
 
+
+
+# So... I think I have an issue with multicollinearity in my data, which could make some variables significant predictors when they shouldn't be. Going to try lasso regression as that can apparently help.
+```{r lasso caret}
+str(df.div.coral)
+df.div.coral.sha <- df.div.coral %>% dplyr::select(Shannon, site, season, density_sqrt)
+str(df.div.coral.sha)
+
+library(caret)
+model <- train(
+  Shannon ~ .,
+  data = df.div.coral.sha,
+  method = 'lasso'
+)
+model
+plot(model)
+plot(varImp(model))
+
+#pre-process data
+model2 <- train(
+  Shannon ~ .,
+  data = df.div.coral.sha,
+  method = 'lasso',
+  preProcess = c("center", "scale") #center and scale the data
+)
+model2
+
+#training
+set.seed(1)
+
+inTraining <- createDataPartition(df.div.coral.sha$Shannon, p = .80, list = FALSE)
+training <- df.div.coral.sha[inTraining,]
+testing  <- df.div.coral.sha[-inTraining,]
+
+model3 <- train(
+  Shannon ~.,
+  data = training,
+  method = 'lasso',
+  preProcess = c("center", "scale")
+)
+model3
+
+test.features = subset(testing, select=-c(Shannon))
+test.target = subset(testing, select=Shannon)[,1]
+
+predictions = predict(model3, newdata = test.features)
+
+# RMSE
+sqrt(mean((test.target - predictions)^2))
+#0.816311
+
+
+#cross validation
+ctrl <- trainControl(
+  method = "cv",
+  number = 10,
+)
+
+
+model4 <- train(
+  Shannon ~ .,
+  data = training,
+  method = 'lasso',
+  preProcess = c("center", "scale"),
+  trControl = ctrl
+)
+model4
+
+test.features = subset(testing, select=-c(Shannon))
+test.target = subset(testing, select=Shannon)[,1]
+
+predictions = predict(model4, newdata = test.features)
+
+# RMSE
+sqrt(mean((test.target - predictions)^2))
+#0.7229497
+
+
+#R2
+cor(test.target, predictions) ^ 2
+#0.4864439
+
+
+tuneGrid <- expand.grid(
+  .fraction = seq(0, 1, by = 0.1)
+)
+
+
+model5 <- train(
+  Shannon ~ .,
+  data = training,
+  method = 'lasso',
+  preProcess = c("center", "scale"),
+  trControl = ctrl,
+  tuneGrid = tuneGrid
+)
+
+model5
+plot(model5)
+plot(varImp(model5))
+
+```
+
+# Trying lasso regression with glmnet package
+```{r}
+#library(glmnet)
+#define response variable
+y <- df.div.coral.sha$Shannon
+
+#define matrix of predictor variables
+x <-data.matrix(df.div.coral.sha %>% dplyr::select(site:density_sqrt))
+
+#perform k-fold cross-validation to find optimal lambda value
+cv_model <- cv.glmnet(x, y, alpha = 1)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+#[1] 0.03693455
+
+#produce plot of test MSE by lambda value
+plot(cv_model) 
+
+#find coefficients of best model
+best_model <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+coef(best_model)
+#4 x 1 sparse Matrix of class "dgCMatrix"
+#                        s0
+#(Intercept)   3.115196e+00
+#site         -1.308859e-01
+#season        5.675169e-01
+#density_sqrt -4.229753e-05
+
+#use fitted best model to make predictions
+y_predicted <- predict(best_model, s = best_lambda, newx = x)
+
+#find SST and SSE
+sst <- sum((y - mean(y))^2)
+sse <- sum((y_predicted - y)^2)
+
+#find R-Squared
+rsq <- 1 - sse/sst
+rsq
+
+#[1] 0.1782721 so small!
+
+```
 
 
 ### Faith's D
