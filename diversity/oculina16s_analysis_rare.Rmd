@@ -33,7 +33,7 @@ library(FSA)
 library(flextable)
 ```
 
-
+# ALPHA DIVERSITY NEEDS TO BE CALCULATED USING RAW DATA - CHANGING ALL PS.RARE TO PS.LESS (9/21/22)
 
 ## Read in data
 
@@ -142,6 +142,87 @@ dunnTest(even~type, data=df1, method="bonferroni") #coral-sed, sw-sed sig
 dunnTest(Observed~type, data=df1, method="bonferroni") #all sig
 dunnTest(Chao1~type, data=df1, method="bonferroni") #coral-sed sig
 
+df2 <- df.div %>% select(Shannon, even, Observed, Chao1, season)
+tbl_summary(df2, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sha <- df2 %>% select(Shannon, season)
+tbl_summary(df.sha, by=season) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+df2 <- df.div %>% select(Shannon, even, Observed, Chao1, site)
+tbl_summary(df2, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+df.sha <- df2 %>% select(Shannon, site)
+tbl_summary(df.sha, by=site) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+# look at season differences for sed + sw
+##sw
+df.sw.seas <- df.div %>%
+  subset(type == "seawater") %>%
+  select(Shannon, even, Observed, Chao1, season)
+
+tbl_summary(df.sw.seas, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>%
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sw.seas.sha <- df.sw.seas %>% select(Shannon, season)
+tbl_summary(df.sw.seas.sha, by=season) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+df.sw.site <- df.div %>%
+  subset(type == "seawater") %>%
+  select(Shannon, even, Observed, Chao1, site)
+
+tbl_summary(df.sw.site, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>%
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sw.site.sha <- df.sw.site %>% select(Shannon, site)
+tbl_summary(df.sw.site.sha, by=site) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+## sediment
+df.sed.seas <- df.div %>%
+  subset(type == "sediment") %>%
+  select(Shannon, even, Observed, Chao1, season)
+
+tbl_summary(df.sed.seas, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>%
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sed.seas.sha <- df.sed.seas %>% select(Shannon, season)
+tbl_summary(df.sed.seas.sha, by=season) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+df.sed.site <- df.div %>%
+  subset(type == "sediment") %>%
+  select(Shannon, even, Observed, Chao1, site)
+
+tbl_summary(df.sed.site, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>%
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sed.site.sha <- df.sed.site %>% select(Shannon, site)
+tbl_summary(df.sed.site.sha, by=site) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+
 tbl.all.site %>%
   as_flex_table() %>%
   save_as_image(path ="~/oculina/diversity/figures/tbl.all.site.png") # use extensions .html .tex .ltx .rtf
@@ -149,13 +230,16 @@ tbl.all.site %>%
 ```
 
 ```{r summary statistics coral}
-
-
 df1 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, site)
-tbl.coral.site <- tbl_summary(df1, by = site) %>%
-  add_p(test = Shannon ~ "aov") %>% # test for a difference between groups
+tbl.coral.seas <- tbl_summary(df1, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
   modify_header(label = "***Alpha Diversity***") %>% # update the column header
   bold_labels()
+df.coral.site.sha <- df.div.coral %>% select(Shannon, site)
+tbl_summary(df.coral.site.sha, by=site) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
 aov.sha <- (aov(Shannon ~ site, data=df1))
 TukeyHSD(aov.sha)
 
@@ -165,25 +249,37 @@ dunnTest(even~site, data=df1, method="bonferroni") #CL-RI sig dif, others not
 
 df2 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, season)
 tbl.coral.seas <- tbl_summary(df2, by = season) %>%
-  add_p() %>% # test for a difference between groups
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
   modify_header(label = "***Alpha Diversity***") %>% # update the column header
   bold_labels()
+df.coral.seas.sha <- df.div.coral %>% select(Shannon, season)
+tbl_summary(df.coral.seas.sha, by=season) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
 
 df3 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, symbstate)
 tbl.coral.ss <- tbl_summary(df3, by = symbstate) %>%
-  add_p() %>% # test for a difference between groups
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
   modify_header(label = "***Alpha Diversity***") %>% # update the column header
   bold_labels()
+df.coral.ss.sha <- df.div.coral %>% select(Shannon, symbstate)
+tbl_summary(df.coral.ss.sha, by=symbstate) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
 
-tbl.coral.merge <-
-  tbl_merge(
-    tbls = list(tbl.coral.site, tbl.coral.seas, tbl.coral.ss),
-    tab_spanner = c("**Site**", "**Season**", "**Symbiotic State**")
-  )
+# check for interaction
+df1 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, site, density_sqrt, season)
+lm <- (lm(data=df1, Shannon ~ site * density_sqrt)) #intxn sig (***)
+tab_model(lm, digits = 4)
+lm <- (lm(data=df1, even ~ site * density_sqrt)) #intxn sig (*)
+summary(lm(data=df1, Observed ~ site * density_sqrt)) #intxn sig (***)
+summary(lm(data=df1, Chao1 ~ site * density_sqrt)) #intxn ***
 
-tbl.coral.merge %>%
-  as_flex_table() %>%
-  save_as_image(path ="~/oculina/diversity/figures/tbl.alphadivstats.coral.merge.png") # use extensions .html .tex .ltx .rtf
+df1 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, site, symbstate, season)
+lm <- (lm(data=df1, Shannon ~ site * symbstate)) #intxn sig (***)
+summary(lm) #symb state significant, and intxn sig (for RI)
+
 
 ```
 
@@ -413,7 +509,7 @@ summary(glm.3b)
 #siteNR:density_sqrt  0.0009398  0.0002391   3.930 0.000382 ***
 #siteRI:density_sqrt  0.0003175  0.0002124   1.495 0.143860    
 
-
+tab_model(glm.3b, digits =2)
 #check for collinearity....
 #library(mctest)
 omcdiag(glm.3b) #chisq significant, indicates multicolinnearity
@@ -423,8 +519,6 @@ imcdiag(glm.3b) # shows all except season collinear
 #library(faraway)
 vif(glm.3b)
 
-
-tab_model(glm.3b, digits=4)
 
 #cross validation
 #library(boot)
@@ -482,6 +576,7 @@ glm.3e <- glm(even ~ season*site*density_sqrt, data=df.div.coral, family=gaussia
 AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
 
 # glm.1b best (dif from raw, was 1c) - lines up with effect of season above (for all types) too
+# AIC -81.32
 summary(glm.1b) 
 #             Estimate Std. Error t value Pr(>|t|)    
 #(Intercept)    3.9048     0.2001  19.511   <2e-16 ***
@@ -507,19 +602,11 @@ glm.3d <- glm(even ~ site+season*symbstate, data=df.div.coral, family=gaussian()
 glm.3e <- glm(even ~ season*site*symbstate, data=df.div.coral, family=gaussian())
 
 AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
- #glm.3c best 
+ #glm.1b best 
 
-summary(glm.3c)
-#                    Estimate Std. Error t value Pr(>|t|)    
-#(Intercept)          0.82447    0.04706  17.521  < 2e-16 ***
-#seasonSummer        -0.14554    0.03727  -3.905 0.000397 ***
-#siteNR              -0.03489    0.06199  -0.563 0.577000    
-#siteRI               0.04075    0.03831   1.064 0.294605    
-#symbstateSymbiotic   0.02750    0.02538   1.083 0.285805    
-#seasonSummer:siteNR  0.13067    0.06121   2.135 0.039649 *  
-#seasonSummer:siteRI       NA         NA      NA       NA   
+summary(glm.1b)
 
-tab_model(glm.3c)
+tab_model(glm.1b)
 
 ```
 
@@ -570,7 +657,7 @@ glm.3c <- glm.nb(Observed ~ season*site+density_sqrt, data=df.div.coral)
 glm.3d <- glm.nb(Observed ~ site+season*density_sqrt, data=df.div.coral)
 glm.3e <- glm.nb(Observed ~ season*site*density_sqrt, data=df.div.coral)
 
-AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e) # AIC 447.42
 
 # glm.3b best (same as raw)
 
@@ -632,18 +719,10 @@ glm.3d <- glm(Chao1 ~ site+season*density_sqrt, data=df.div.coral, family=gaussi
 glm.3e <- glm(Chao1 ~ season*site*density_sqrt, data=df.div.coral, family=gaussian())
 
 AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
-#glm.3b best
+#glm.3b best AIC 492.17
 
 summary(glm.3b)
-
-#                     Estimate Std. Error t value Pr(>|t|)    
-#(Intercept)          32.02923   43.05733   0.744 0.461918    
-#seasonFall          -17.71509   27.60293  -0.642 0.525195    
-#siteCL              161.88566   75.50262   2.144 0.039049 *  
-#siteRI              123.88024   54.32057   2.281 0.028776 *  
-#density_sqrt          0.05763    0.01732   3.327 0.002070 ** 
-#siteCL:density_sqrt  -0.09835    0.02861  -3.438 0.001530 ** 
-#siteRI:density_sqrt  -0.08109    0.02097  -3.867 0.000458 ***
+tab_model(glm.3b)
 
 effectsize::standardize_parameters(glm.3b, exp = TRUE)
 #Parameter           | Std. Coef. |       95% CI
