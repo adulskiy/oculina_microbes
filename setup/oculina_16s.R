@@ -753,3 +753,13 @@ write.table(seqtab.trim.t,file="oculina16s_rev_seqtab.trim.t.txt")
 
 #### moving on to oculina16s_revised_analysis.R script in other folder ####
 
+
+
+# check read depths
+load("~/oculina/data/ps.less_rev.Rdata")
+mean(sample_sums(ps.less))
+#15488.52
+sd(sample_sums(ps.less))
+#16011.4
+sum(sample_sums(ps.less))
+#1,099,685
