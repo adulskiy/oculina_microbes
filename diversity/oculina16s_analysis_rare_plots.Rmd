@@ -40,8 +40,8 @@ load("~/oculina/data/taxa2.rev.Rdata")
 
 
 ```{r read in ps objects}
-load("~/oculina/data/ps.rare.rev.Rdata")
-ps.rare #5237 taxa, 67 samples
+load("~/oculina/data/ps.less.rev.Rdata")
+
 ```
 
 # Diversity
@@ -70,7 +70,9 @@ df.div.coral.NR <- subset(df.div.coral,site=="NR")
 df.div.coral.RI <- subset(df.div.coral,site=="RI")
 df.div.coral.CL <- subset(df.div.coral,site=="CL")
 df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
-
+df.div.coral$density <- as.numeric(df.div.coral$density)
+#skewness(df.div.coral$density) #very right skewed (1.93)
+df.div.coral$density_sqrt <- sqrt(df.div.coral$density)
 
 ```
 
@@ -258,18 +260,30 @@ gg.sha.coral.sd <- ggplot(df.div.coral,aes(x=density,y=Shannon, color=site))+
   geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")
 
 gg.sha.coral.sd.sqrt <- ggplot(df.div.coral,aes(x=density_sqrt,y=Shannon, color=site))+
+  geom_point(size=3)+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+ # scale_shape_manual(values=c(10, 19))+
+  theme_cowplot()+
+  xlab(expression(sqrt(Density (cells/cm2))))+
+  ylab("Shannon Index")+
+  labs(color="Site")+
+ # theme(legend.position="none")+
+  stat_poly_eq(label.x = "right")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")
+
+ggplot(df.div.coral,aes(x=density_sqrt,y=Shannon, color=season))+
   geom_point(size=3, aes(shape=symbstate))+
   scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
   scale_shape_manual(values=c(10, 19))+
   theme_cowplot()+
   xlab(expression(sqrt(Density (cells/cm2))))+
   ylab("Shannon Index")+
-  labs(shape="Symbiotic state",color="Site")+
+ # labs(shape="Symbiotic state",color="Site")+
  # theme(legend.position="none")+
   stat_poly_eq(label.x = "right")+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
   geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")
-
 library(ggpmisc)
 
 #library(ggpubr)
@@ -318,17 +332,38 @@ gg.sha.coral.ss.site <- ggplot(df.div.coral,aes(x=site,y=Shannon,color=symbstate
   #theme(legend.position="none")
 
 
+  #theme(legend.position="none")
 #ggsave(gg.sha.coral.site.ss,file="~/oculina/diversity/figures/rare-figs/gg.sha.coral.site.ss.rare.png",width=8,height=4)
 #ggsave(gg.sha.coral.site.seas,file="~/oculina/diversity/figures/rare-figs/gg.sha.coral.site.seas.rare.png",width=8,height=4)
 #ggsave(gg.sha.coral.symb,file="~/oculina/diversity/figures/rare-figs/gg.sha.coral.symb.rare.png",width=8,height=4)
 #ggsave(gg.sha.coral.seas,file="~/oculina/diversity/figures/rare-figs/gg.sha.coral.seas.rare.png",width=8,height=4)
-#ggsave(gg.sha.coral.sd,file="~/oculina/diversity/figures/rare-figs/gg.sha.coral.sd.rare.png",width=8,height=4)
-#ggsave(gg.sha.coral.sd.sqrt,file="~/oculina/diversity/figures/rare-figs/gg.sha.coral.sd.sqrt.rare.png",width=8,height=4)
+#ggsave(gg.sha.coral.sd,file="~/oculina/diversity/figures/rare-figs/gg.sha.coral.sd.rare.png",width=6,height=4)
+#ggsave(gg.sha.coral.sd.sqrt,file="~/oculina/diversity/figures/rare-figs/gg.sha.coral.sd.sqrt.rare.png",width=6, height=4)
 #ggsave(gg.sha.coral.ss.site,file="~/oculina/diversity/figures/rare-figs/gg.sha.coral.ss.site.rare.png",width=8,height=4)
 
 ```
 
 
+```{r glm coral density no outlier}
+library(outliers)
+outlier <- outlier(df.div.coral$density_sqrt)
+df.div.coral.out <- df.div.coral %>% filter(!density_sqrt %in% outlier)
+
+
+gg.sha.coral.sd.sqrt <- ggplot(df.div.coral.out,aes(x=density_sqrt,y=Shannon, color=site))+
+  geom_point(size=3)+
+  scale_color_manual(values=c("#000004","darkslategray4","darkslategray3"))+
+ # scale_shape_manual(values=c(10, 19))+
+  theme_cowplot()+
+  xlab(expression(sqrt(Density (cells/cm2))))+
+  ylab("Shannon Index")+
+  labs(color="Site")+
+ # theme(legend.position="none")+
+  stat_poly_eq(label.x = "right")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")
+
+```
 
 ```{r shannon sedsw}
 #plotting sed and sw
@@ -839,6 +874,7 @@ gg.fd.coral.ss.site <- ggplot(df.div.pd.coral,aes(x=site,y=PD,color=symbstate))+
 library("microshades")
 #remotes::install_github("mikemc/speedyseq")
 library("speedyseq")
+#load("~/oculina/data/ps.rare.rev.Rdata")
 
 #all
 #ps_glom <- tax_glom(ps.less, "Genus")
@@ -847,43 +883,44 @@ library("speedyseq")
 #ps.all <- transform_sample_counts(ps1, function(x) x / sum(x))
 
 #reorder sites
-sample_data(ps.rar)$site <- factor(sample_data(ps.less)$site, levels=c("NR","RI","CL"))
-levels(sample_data(ps.less)$site)
+sample_data(ps.rare)$site <- factor(sample_data(ps.rare)$site, levels=c("NR","RI","CL"))
+sample_data(ps.rare)$type <- factor(sample_data(ps.rare)$site, levels=c("coral","seawater","sediment"))
+levels(sample_data(ps.rare)$site)
 
 
 # Use microshades function prep_mdf to agglomerate, normalize, and melt the phyloseq object
-mdf.prep.less <- prep_mdf(ps.less, subgroup_level="Genus")
+mdf.prep.rare <- prep_mdf(ps.rare, subgroup_level="Genus")
 
 # Create a color object for the specified data
-color.obj.less<- create_color_dfs(mdf.prep.less, group_level = "Phylum", subgroup_level = "Genus", cvd = TRUE)
+color.obj.rare<- create_color_dfs(mdf.prep.rare, group_level = "Phylum", subgroup_level = "Genus", cvd = TRUE)
 
 # Extract
-mdf.less <- color.obj.less$mdf
-cdf.less <- color.obj.less$cdf
+mdf.rare <- color.obj.rare$mdf
+cdf.rare <- color.obj.rare$cdf
 
 ```
 
 ```{r facet wrap}
 # remove current Sample column (currently a repeat of id), and then rename fullname = Sample
 #library(dplyr)
-mdf.less <- mdf.less %>%
+mdf.rare <- mdf.rare %>%
   select(-Sample) %>%
   rename(Sample = fullname) %>%
   rename(number = sample)
 
-new.sample.order <- reorder_samples_by(mdf.less, cdf.less, group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = FALSE)
+new.sample.order <- reorder_samples_by(mdf.rare, cdf.rare, group_level = "Phylum", subgroup_level = "Family", sink_abundant_groups = FALSE)
 
 mdf.new.sample.order <-new.sample.order$mdf
 cdf.new.sample.order <-new.sample.order$cdf
 
-plot.less <- plot_microshades(mdf.new.sample.order, cdf.new.sample.order, group_label = "Phylum Family")
+plot.rare <- plot_microshades(mdf.new.sample.order, cdf.new.sample.order, group_label = "Phylum Family")
 
-ms.allsamples <- plot.less + 
+ms.allsamples <- plot.rare + 
   theme(legend.key.size = unit(0.5, "cm"), text=element_text(size=8)) +
   theme(axis.text.x = element_text(size= 6)) +
   facet_grid(~type, scales = "free_x", space="free") +
-  theme (strip.text.x = element_text(size = 10))+
-  theme(axis.title=element_text(size=10))+
+  theme (strip.text.x = element_text(size = 12))+
+  theme(axis.title=element_text(size=12))+
   scale_y_continuous(labels = scales::percent, expand = expansion(0))
 #can't figure out how to reorder samples to be NR-RI-CL :/
   
@@ -891,7 +928,7 @@ ms.allsamples <- plot.less +
 ```
 
 ```{r microshades plot coral only}
-ps.coral <- subset_samples(ps.less, type=="coral")
+ps.coral <- subset_samples(ps.rare, type=="coral")
 #make site a factor
 sample_data(ps.coral)$site <- as.factor(sample_data(ps.coral)$site)
 mdf.coral <- prep_mdf(ps.coral, subgroup_level="Genus")
@@ -921,18 +958,18 @@ ms.coral.site <- plot.coral +
   facet_grid(~factor(site, levels=c("NR","RI","CL")), scales = "free_x", space="free")
 
 ms.coral.site
-#ggsave(ms.coral.site,file="./figures/ms.coral.site.png",width=12,height=6)
+#ggsave(ms.coral.site,file="~/oculina/diversity/figures/ms.coral.rare.site.png",width=12,height=6)
 ```
 
 ```{r microshades by all_id}
-ps_glom.less <- tax_glom(ps.less, "Genus")
-ps0.less <- transform_sample_counts(ps_glom.less, function(x) x / sum(x))
-ps1.less <- merge_samples(ps0.less, "all_id")
-ps.less.allid <- transform_sample_counts(ps1.less, function(x) x / sum(x))
+ps_glom.rare <- tax_glom(ps.rare, "Genus")
+ps0.rare <- transform_sample_counts(ps_glom.rare, function(x) x / sum(x))
+ps1.rare <- merge_samples(ps0.rare, "all_id")
+ps.rare.allid <- transform_sample_counts(ps1.rare, function(x) x / sum(x))
 
 
 # Use microshades function prep_mdf to agglomerate, normalize, and melt the phyloseq object
-mdf.prep.allid <- prep_mdf(ps.less.allid, subgroup_level="Genus")
+mdf.prep.allid <- prep_mdf(ps.rare.allid, subgroup_level="Genus")
 
 # Create a color object for the specified data
 color.obj.allid<- create_color_dfs(mdf.prep.allid, group_level = "Phylum", subgroup_level = "Genus", cvd = TRUE)
@@ -950,15 +987,14 @@ cdf.new.sample.order <-new.sample.order$cdf
 
 plot.allid <- plot_microshades(mdf.new.sample.order, cdf.new.sample.order, group_label = "Phylum Family")
 
-
 ms.allid <- plot.allid + 
-  theme(legend.key.size = unit(0.5, "cm"), text=element_text(size=8)) +
-  theme(axis.text.x = element_text(size= 6)) +
-  theme (strip.text.x = element_text(size = 10))+
-  theme(axis.title=element_text(size=10))+
+  theme(legend.key.size = unit(0.5, "cm"), text=element_text(size=12)) +
+  theme(axis.text.x = element_text(size= 10)) +
+  theme (strip.text.x = element_text(size = 8))+
+  theme(axis.title=element_text(size=12))+
   scale_y_continuous(labels = scales::percent, expand = expansion(0))
 
-#ggsave(ms.allid,file="./figures/ms.allid.png",width=12,height=6)
+#ggsave(ms.allid,file="~/oculina/diversity/figures/ms.allid.rare.png",width=12,height=6)
 
 ```
 

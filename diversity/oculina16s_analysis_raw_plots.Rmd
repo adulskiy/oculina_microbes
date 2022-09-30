@@ -752,7 +752,7 @@ gg.fd.coral.sd <- ggplot(df.div.coral.pd,aes(x=density,y=PD, color=site))+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
   geom_smooth(method=lm, se=FALSE, size=0.4, linetype="solid")+
   stat_poly_eq(label.x = "right")+
-  ggtitle("Phylogenetic Diveristy (Coral)")
+  ggtitle("Phylogenetic Diversity (Coral)")
 
 gg.fd.coral.ss.site <- ggplot(df.div.pd.coral,aes(x=site,y=PD,color=symbstate))+
   geom_boxplot(outlier.shape=NA)+

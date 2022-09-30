@@ -58,31 +58,11 @@ ps.rare
 
 ```
 
-##TRIMMED VERSIONS:
-```{r}
-seqtab.rare.trim <- read.csv("oculina16s_rev_seqtab.trim.rare.2k.csv",row.names=1)
-ps.rare.trim <- phyloseq(otu_table(seqtab.rare.trim, taxa_are_rows=FALSE), 
-                    sample_data(samdf), 
-                    tax_table(taxa2))
-ps.rare.trim
-#save(ps.rare.trim,file="ps.rare.trim.rev.Rdata")
-#823 taxa &  64 samples rarefied
-
-#checking what happens if we read in the unrarefied version:
-seqtab.trim <- read.csv("oculina16s_rev_seqtab.trim.csv",row.names=1)
-ps.trim <- phyloseq(otu_table(seqtab.trim, taxa_are_rows=FALSE), 
-                    sample_data(samdf), 
-                    tax_table(taxa2))
-ps.trim
-#save(ps.trim,file="ps.trim.rev.Rdata")
-#823 taxa & 67 samples not rarefied
-```
-
 
 ```{r read in ps objects}
 setwd("~/oculina/data")
 #load("ps.clean.Rdata")
-load("~/oculina/data/ps.rare.rev.Rdata")
+load("~/oculina/data/ps.less_rev.Rdata")
 #load("ps.rare.trim.Rdata")
 #load("ps.trim.Rdata")
 ```
@@ -93,10 +73,7 @@ load("~/oculina/data/ps.rare.rev.Rdata")
 Visualize alpha-diversity - Should be done on raw, untrimmed dataset
 
 ```{r generate div metrics}
-df <- data.frame(estimate_richness(ps.rare, split=TRUE, measures=c("Shannon","InvSimpson","Observed","Chao1")))
-#df <- data.frame(estimate_richness(ps.clean, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
-#df <- data.frame(estimate_richness(ps.trim, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
-#df <- data.frame(estimate_richness(ps.rare.trim, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
+df <- data.frame(estimate_richness(ps.less, split=TRUE, measures=c("Shannon","InvSimpson","Observed","Chao1")))
 df$id <- rownames(df)
 df.div <- merge(df,samdf,by="id") #add sample data
 #shannon diversity divided by species richness
@@ -319,8 +296,8 @@ mean(MSE2$MSE)
 #library("remotes")
 #install_github("darcyj/specificity")
 library(specificity)
-#need to subset just coral samples from ps.rare
-ps.coral <- subset_samples(ps.rare, type=="coral")
+#need to subset just coral samples from ps.less
+ps.coral <- subset_samples(ps.less, type=="coral")
 #removing sample E2 for now b/c it has NA for density
 ps.coral <- subset_samples(ps.coral, id != "E2")
 otutable <- as(otu_table(ps.coral), "matrix")
@@ -354,7 +331,7 @@ specs_list$"SymbDensity" <- phy_or_env_spec(otutable.over10, env=metadata$densit
 
 plot_specs_violin(specs_list, label_cex=0.6, cols="red") #all nonsig! lol
 
-#specs_df <- aggregate_specs_list(specs_list, byFeature=FALSE, fd=seqtab.rare, fd_id=1)
+#specs_df <- aggregate_specs_list(specs_list, byFeature=FALSE, fd=seqtab.less, fd_id=1)
 #ggplot(specs_list, aes(x=Variable, y=Spec, fill=Variable)) +
 #  geom_violin()+
 #  geom_jitter(width=0.2,size=0.2)
@@ -813,7 +790,7 @@ library("microshades")
 library("speedyseq")
 
 #all
-ps_glom <- tax_glom(ps.rare, "Genus")
+ps_glom <- tax_glom(ps.less, "Genus")
 ps0 <- transform_sample_counts(ps_glom, function(x) x / sum(x))
 ps1 <- merge_samples(ps0, "fullname")
 ps.all <- transform_sample_counts(ps1, function(x) x / sum(x))
@@ -827,29 +804,29 @@ ps.cleanest
 #save(ps.cleanest,file="ps.cleanest.Rdata")
 samdf.cleanest <- data.frame(ps.cleanest@sam_data)
 
-#for rarefied data, remove everything < 2000
+#for lessfied data, remove everything < 2000
 row.names.remove <- c("D6","F3","H2","F7","H4","H7")
-samdf.rare <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove), ]
+samdf.less <- samdf.cleanest[!(row.names(samdf.cleanest) %in% row.names.remove), ]
 
-#variable1 = as.character(get_variable(samdf.rare, "type"))
+#variable1 = as.character(get_variable(samdf.less, "type"))
 #sample_data(ps.all)$type <- mapply(paste0, variable1)
-all(rownames(samdf.rare) %in% sample_names(ps.all))
-samdf.rare = sample_data(samdf.rare)
-merge_phyloseq(ps.all, samdf.rare)
+all(rownames(samdf.less) %in% sample_names(ps.all))
+samdf.less = sample_data(samdf.less)
+merge_phyloseq(ps.all, samdf.less)
 head(sample_data(ps.all))
 
 #overall by all_id
-ps_glom.rare <- tax_glom(ps.rare, "Genus")
-ps0.rare <- transform_sample_counts(ps_glom.rare, function(x) x / sum(x))
-ps1.rare <- merge_samples(ps0.rare, "all_id")
-ps.rare.allid <- transform_sample_counts(ps1.rare, function(x) x / sum(x))
+ps_glom.less <- tax_glom(ps.less, "Genus")
+ps0.less <- transform_sample_counts(ps_glom.less, function(x) x / sum(x))
+ps1.less <- merge_samples(ps0.less, "all_id")
+ps.less.allid <- transform_sample_counts(ps1.less, function(x) x / sum(x))
 
 # overall by type
-ps1.rare.type <- merge_samples(ps0.rare, "type")
-ps.rare.type <- transform_sample_counts(ps1.rare.type, function(x) x / sum(x))
+ps1.less.type <- merge_samples(ps0.less, "type")
+ps.less.type <- transform_sample_counts(ps1.less.type, function(x) x / sum(x))
 
 # overall coral by all_id
-ps.coral <- subset_samples(ps.rare,type=="coral")
+ps.coral <- subset_samples(ps.less,type=="coral")
 ps_glom.coral <- tax_glom(ps.coral, "Genus")
 ps0.coral <- transform_sample_counts(ps_glom.coral, function(x) x / sum(x))
 ps1.coral <- merge_samples(ps0.coral, "all_id")

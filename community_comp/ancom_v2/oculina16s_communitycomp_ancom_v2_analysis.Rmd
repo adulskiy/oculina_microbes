@@ -96,7 +96,7 @@ plot_bar(ps.sig.taxa,x="type",y="Abundance",fill="Genus")+
 
 ### SEAWATER SITES
 
-```{r ancom seawater site}
+```{r ancom seawater site and season}
 ps.seawater <- ps.less %>% subset_samples(type == "seawater")
 otu_data_unt <- data.frame(ps.seawater@otu_table)
 otu_data<- data.frame(t(otu_data_unt))
@@ -109,23 +109,28 @@ prepro <- feature_table_pre_process(feature_table = otu_data, meta_data=meta_dat
 res.seawater.site <- ANCOM(feature_table = prepro$feature_table, meta_data = prepro$meta_data, 
       struc_zero = prepro$structure_zeros, main_var = "site", p_adj_method = "BH", 
                  alpha = 0.05, adj_formula = NULL, rand_formula = NULL)
+res.seawater.season <- ANCOM(feature_table = prepro$feature_table, meta_data = prepro$meta_data, 
+      struc_zero = prepro$structure_zeros, main_var = "season", p_adj_method = "BH", 
+                 alpha = 0.05, adj_formula = NULL, rand_formula = NULL)
 
 #saveRDS(res.seawater.site, file="~/oculina/community_comp/ancom_v2/res.seawater.site.RDS")
+# 0 significant... weird b/c previous ancom analysis showed two diff. abun. ASVs
 
+#saveRDS(res.seawater.season, file="~/oculina/community_comp/ancom_v2/res.seawater.season.RDS")
 
 ```
 
-```{r seawater site heatmap}
-#res.seawater.site <- readRDS("~/oculina/community_comp/ancom_v2/res.seawater.site.RDS")
-out <- res.seawater.site$out
+```{r seawater season heatmap}
+#res.seawater.seas <- readRDS("~/oculina/community_comp/ancom_v2/res.seawater.seas.RDS")
+out <- res.seawater.seas$out
 out.sig <- out[out$detected_0.6==TRUE,] 
-want <- c(out.sig$taxa_id) #says there are none, which is weird because before it said there were two...
+want <- c(out.sig$taxa_id)
 ps.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want)
-ps.sig.taxa@sam_data$site  <- factor(ps.sig.taxa@sam_data$site, levels = c("NR","RI","CL"))
+ps.sig.taxa@sam_data$season  <- factor(ps.sig.taxa@sam_data$season, levels = c("Summer","Fall"))
 
 
-ps.sig.subset <- merge_samples(ps.sig.taxa,"site")
-#ps.sig.NR <- subset_samples(ps.sig.taxa,site=="NR")
+ps.sig.subset <- merge_samples(ps.sig.taxa,"season")
+#ps.sig.NR <- subset_samples(ps.sig.taxa,season=="NR")
 
 #library(metagMisc)
 gp <- tax_glom(ps.sig.subset, taxrank="Genus")  
@@ -135,19 +140,19 @@ head(tax_table(gp))   # last columns are filled with NAs
 gp2 <- phyloseq_rm_na_tax(gp)  
 head(tax_table(gp2))
 
-gp2@sam_data$site <- c("NR","RI","CL")
+gp2@sam_data$season <- c("Summer","Fall")
 
-#sites don't match up in plot, for some reason, so do this if necessary:
-gp2@sam_data$site  <- factor(gp2@sam_data$site, levels = c("NR","RI","CL"))
+#seasons don't match up in plot, for some reason, so do this if necessary:
+gp2@sam_data$season  <- factor(gp2@sam_data$season, levels = c("Summer", "Fall"))
 
 
 ann_colors = list(
-    site = c(NR = "white", RI = "white", CL = "white")
+    season = c(Summer = "white", Fall = "white")
 )
 
-heatmap.seawater.site <- plot_taxa_heatmap(gp2,
+heatmap.seawater.season <- plot_taxa_heatmap(gp2,
   subset.top=20,                               
-  VariableA = "site",
+  VariableA = "season",
   heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
   #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
   transformation = "log10",
@@ -159,11 +164,16 @@ heatmap.seawater.site <- plot_taxa_heatmap(gp2,
   annotation_names_col=F,
   annotation_colors=ann_colors
 )
+# this looks exactly like the heat plot for sediment.... something is fishy...
+
+#for ease of finding W stats
+res.seawater.season.join <-full_join(res.seawater.season[["out"]], res.seawater.season[["fig"]][["data"]])
+res.seawater.season.join %>% filter(taxa_id=="sq273")
 
 ```
 
 
-### SEDIMENT SITES
+### SEDIMENT SITES & SEASON
 
 ```{r ancom sediment site}
 ps.sediment <- ps.less %>% subset_samples(type == "sediment")
@@ -178,8 +188,11 @@ prepro <- feature_table_pre_process(feature_table = otu_data, meta_data=meta_dat
 res.sediment.site <- ANCOM(feature_table = prepro$feature_table, meta_data = prepro$meta_data, 
       struc_zero = prepro$structure_zeros, main_var = "site", p_adj_method = "BH", 
                  alpha = 0.05, adj_formula = NULL, rand_formula = NULL)
-
+res.sediment.season <- ANCOM(feature_table = prepro$feature_table, meta_data = prepro$meta_data, 
+      struc_zero = prepro$structure_zeros, main_var = "season", p_adj_method = "BH", 
+                 alpha = 0.05, adj_formula = NULL, rand_formula = NULL)
 #saveRDS(res.sediment.site, file="~/oculina/community_comp/ancom_v2/res.sediment.site.RDS")
+#saveRDS(res.sediment.season, file="~/oculina/community_comp/ancom_v2/res.sediment.season.RDS")
 
 ```
 
@@ -229,26 +242,58 @@ heatmap.sediment.site <- plot_taxa_heatmap(gp2,
 )
 
 ```
-### CORAL SITES
 
-```{r ancom coral site}
-ps.coral <- ps.less %>% subset_samples(type == "coral")
-otu_data_unt <- data.frame(ps.coral@otu_table)
-otu_data<- data.frame(t(otu_data_unt))
-meta_data = data.frame(ps.coral@sam_data)
-meta_data = meta_data %>% rename(Sample.ID = id)
+```{r sediment season heatmap}
+#res.sediment.season <- readRDS("~/oculina/community_comp/ancom_v2/res.sediment.season.RDS")
+out <- res.sediment.season$out
+out.sig <- out[out$detected_0.6==TRUE,] 
+want <- c(out.sig$taxa_id)
+ps.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want)
+ps.sig.taxa@sam_data$season  <- factor(ps.sig.taxa@sam_data$season, levels = c("Summer","Fall"))
 
-prepro <- feature_table_pre_process(feature_table = otu_data, meta_data=meta_data, 
-                                     sample_var = "Sample.ID", group_var = NULL, 
-                                     out_cut = 0.05, zero_cut = 0.90, lib_cut = 1000, neg_lb = FALSE)
-res.coral.site <- ANCOM(feature_table = prepro$feature_table, meta_data = prepro$meta_data, 
-      struc_zero = prepro$structure_zeros, main_var = "site", p_adj_method = "BH", 
-                 alpha = 0.05, adj_formula = NULL, rand_formula = NULL)
 
-#saveRDS(res.coral.site, file="~/oculina/community_comp/ancom_v2/res.coral.site.RDS")
+ps.sig.subset <- merge_samples(ps.sig.taxa,"season")
+#ps.sig.NR <- subset_samples(ps.sig.taxa,season=="NR")
+
+#library(metagMisc)
+gp <- tax_glom(ps.sig.subset, taxrank="Genus")  
+head(tax_table(gp))   # last columns are filled with NAs
+
+# Remove taxonomic levels filled with NAs
+gp2 <- phyloseq_rm_na_tax(gp)  
+head(tax_table(gp2))
+
+gp2@sam_data$season <- c("Summer","Fall")
+
+#seasons don't match up in plot, for some reason, so do this if necessary:
+gp2@sam_data$season  <- factor(gp2@sam_data$season, levels = c("Summer", "Fall"))
+
+
+ann_colors = list(
+    season = c(Summer = "white", Fall = "white")
+)
+
+heatmap.sediment.season <- plot_taxa_heatmap(gp2,
+  subset.top=20,                               
+  VariableA = "season",
+  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
+  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=F,
+  cluster_rows=F,
+  fontsize=16,
+  angle_col = "0",
+  annotation_legend=F,
+  annotation_names_col=F,
+  annotation_colors=ann_colors
+)
+
+
+#for ease of finding W stats
+res.sediment.season.join <-full_join(res.sediment.season[["out"]], res.sediment.season[["fig"]][["data"]])
+res.sediment.season.join %>% filter(taxa_id=="sq273")
 
 ```
-
 ```{r coral site heatmap}
 #res.coral.site <- readRDS("~/oculina/community_comp/ancom_v2/res.coral.site.RDS")
 out <- res.coral.site$out
@@ -294,10 +339,14 @@ heatmap.coral.site <- plot_taxa_heatmap(gp2,
   annotation_colors=ann_colors
 )
 
+
+#for ease of finding W stats
+res.coral.site.join <-full_join(res.coral.site[["out"]], res.coral.site[["fig"]][["data"]])
+res.coral.site.join %>% filter(taxa_id=="sq67")
+
 ```
 
 ### CORAL - SEASON
-
 
 ```{r ancom coral season}
 ps.coral <- ps.less %>% subset_samples(type == "coral")
@@ -362,4 +411,281 @@ heatmap.coral.season <- plot_taxa_heatmap(gp2,
   annotation_colors=ann_colors
 )
 
+
+#for ease of finding W stats
+res.coral.season.join <-full_join(res.coral.season[["out"]], res.coral.season[["fig"]][["data"]])
+res.coral.season.join %>% filter(taxa_id=="sq273")
+
 ```
+
+### CORAL - NR SEASONS
+```{r ancom coral season NR}
+#ps.coral <- ps.less %>% subset_samples(type == "coral")
+ps.coral <- ps.coral %>% subset_samples(site == "NR")
+
+otu_data_unt <- data.frame(ps.coral@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.coral@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+
+prepro <- feature_table_pre_process(feature_table = otu_data, meta_data=meta_data, 
+                                     sample_var = "Sample.ID", group_var = NULL, 
+                                     out_cut = 0.05, zero_cut = 0.90, lib_cut = 1000, neg_lb = FALSE)
+res.coral.NR.season <- ANCOM(feature_table = prepro$feature_table, meta_data = prepro$meta_data, 
+      struc_zero = prepro$structure_zeros, main_var = "season", p_adj_method = "BH", 
+                 alpha = 0.05, adj_formula = NULL, rand_formula = NULL)
+
+#saveRDS(res.coral.NR.season, file="~/oculina/community_comp/ancom_v2/res.coral.NR.season.RDS")
+
+```
+
+```{r coral season heatmap NR}
+#res.coral.season <- readRDS("~/oculina/community_comp/ancom_v2/res.coral.season.RDS")
+out <- res.coral.NR.season$out
+out.sig <- out[out$detected_0.6==TRUE,] 
+want <- c(out.sig$taxa_id)
+ps.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want)
+ps.sig.taxa@sam_data$season  <- factor(ps.sig.taxa@sam_data$season, levels = c("Summer","Fall"))
+
+
+ps.sig.subset <- merge_samples(ps.sig.taxa,"season")
+#ps.sig.NR <- subset_samples(ps.sig.taxa,season=="NR")
+
+#library(metagMisc)
+gp <- tax_glom(ps.sig.subset, taxrank="Genus")  
+head(tax_table(gp))   # last columns are filled with NAs
+
+# Remove taxonomic levels filled with NAs
+gp2 <- phyloseq_rm_na_tax(gp)  
+head(tax_table(gp2))
+
+gp2@sam_data$season <- c("Summer","Fall")
+
+#seasons don't match up in plot, for some reason, so do this if necessary:
+gp2@sam_data$season  <- factor(gp2@sam_data$season, levels = c("Summer", "Fall"))
+
+
+ann_colors = list(
+    season = c(Summer = "white", Fall = "white")
+)
+
+heatmap.coral.season <- plot_taxa_heatmap(gp2,
+  subset.top=20,                               
+  VariableA = "season",
+  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
+  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=F,
+  cluster_rows=F,
+  fontsize=16,
+  angle_col = "0",
+  annotation_legend=F,
+  annotation_names_col=F,
+  annotation_colors=ann_colors
+)
+
+```
+
+
+### CORAL - RI SEASONS
+```{r ancom coral season RI}
+#ps.coral <- ps.less %>% subset_samples(type == "coral")
+ps.coral <- ps.coral %>% subset_samples(site == "RI")
+
+otu_data_unt <- data.frame(ps.coral@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.coral@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+
+prepro <- feature_table_pre_process(feature_table = otu_data, meta_data=meta_data, 
+                                     sample_var = "Sample.ID", group_var = NULL, 
+                                     out_cut = 0.05, zero_cut = 0.90, lib_cut = 1000, neg_lb = FALSE)
+res.coral.RI.season <- ANCOM(feature_table = prepro$feature_table, meta_data = prepro$meta_data, 
+      struc_zero = prepro$structure_zeros, main_var = "season", p_adj_method = "BH", 
+                 alpha = 0.05, adj_formula = NULL, rand_formula = NULL)
+
+#saveRDS(res.coral.RI.season, file="~/oculina/community_comp/ancom_v2/res.coral.RI.season.RDS")
+
+```
+
+```{r coral season heatmap RI}
+#res.coral.season <- readRDS("~/oculina/community_comp/ancom_v2/res.coral.season.RDS")
+out <- res.coral.RI.season$out
+out.sig <- out[out$detected_0.6==TRUE,] 
+want <- c(out.sig$taxa_id)
+ps.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want)
+ps.sig.taxa@sam_data$season  <- factor(ps.sig.taxa@sam_data$season, levels = c("Summer","Fall"))
+
+
+ps.sig.subset <- merge_samples(ps.sig.taxa,"season")
+#ps.sig.RI <- subset_samples(ps.sig.taxa,season=="RI")
+
+#library(metagMisc)
+gp <- tax_glom(ps.sig.subset, taxrank="Genus")  
+head(tax_table(gp))   # last columns are filled with NAs
+
+# Remove taxonomic levels filled with NAs
+gp2 <- phyloseq_rm_na_tax(gp)  
+head(tax_table(gp2))
+
+gp2@sam_data$season <- c("Summer","Fall")
+
+#seasons don't match up in plot, for some reason, so do this if necessary:
+gp2@sam_data$season  <- factor(gp2@sam_data$season, levels = c("Summer", "Fall"))
+
+
+ann_colors = list(
+    season = c(Summer = "white", Fall = "white")
+)
+
+heatmap.coral.season <- plot_taxa_heatmap(gp2,
+  subset.top=20,                               
+  VariableA = "season",
+  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
+  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=F,
+  cluster_rows=F,
+  fontsize=16,
+  angle_col = "0",
+  annotation_legend=F,
+  annotation_names_col=F,
+  annotation_colors=ann_colors
+)
+
+```
+
+### CORAL - SITE COMPARISON IN SUMMER ONLY
+```{r ancom coral sites summer}
+#doing this to account for any differences that are driven by only having summer sampling at CL
+#ps.coral <- ps.less %>% subset_samples(type == "coral")
+ps.coral <- ps.coral %>% subset_samples(season == "Summer")
+
+otu_data_unt <- data.frame(ps.coral@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.coral@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+
+prepro <- feature_table_pre_process(feature_table = otu_data, meta_data=meta_data, 
+                                     sample_var = "Sample.ID", group_var = NULL, 
+                                     out_cut = 0.05, zero_cut = 0.90, lib_cut = 1000, neg_lb = FALSE)
+res.coral.sites.summer <- ANCOM(feature_table = prepro$feature_table, meta_data = prepro$meta_data, 
+      struc_zero = prepro$structure_zeros, main_var = "site", p_adj_method = "BH", 
+                 alpha = 0.05, adj_formula = NULL, rand_formula = NULL)
+
+#saveRDS(res.coral.sites.summer, file="~/oculina/community_comp/ancom_v2/res.coral.sites.summer.RDS")
+
+```
+
+```{r coral sites season heatmap}
+#res.coral.sites.summer <- readRDS("~/oculina/community_comp/ancom_v2/res.coral.sites.summer.RDS")
+out <- res.coral.sites.summer$out
+out.sig <- out[out$detected_0.6==TRUE,] 
+want <- c(out.sig$taxa_id)
+ps.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want)
+ps.sig.taxa@sam_data$site  <- factor(ps.sig.taxa@sam_data$site, levels = c("NR","RI","CL"))
+
+
+ps.sig.subset <- merge_samples(ps.sig.taxa,"site")
+
+#library(metagMisc)
+gp <- tax_glom(ps.sig.subset, taxrank="Genus")  
+head(tax_table(gp))   # last columns are filled with NAs
+
+# Remove taxonomic levels filled with NAs
+gp2 <- phyloseq_rm_na_tax(gp)  
+head(tax_table(gp2))
+
+gp2@sam_data$site <- c("NR","RI","CL")
+gp2@sam_data$site  <- factor(gp2@sam_data$site, levels = c("NR","RI","CL"))
+
+
+ann_colors = list(
+    site = c(NR = "white", RI = "white", CL = "white")
+)
+
+heatmap.coral.sites.summer <- plot_taxa_heatmap(gp2,
+  subset.top=20,                               
+  VariableA = "site",
+  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
+  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=F,
+  cluster_rows=F,
+  fontsize=16,
+  angle_col = "0",
+  annotation_legend=F,
+  annotation_names_col=F,
+  annotation_colors=ann_colors
+)
+
+```
+
+### CORAL - SITE COMPARISON IN FALL ONLY
+```{r ancom coral sites fall}
+#doing this to account for any differences that are driven by only having summer sampling at CL
+#ps.coral <- ps.less %>% subset_samples(type == "coral")
+ps.coral.fall <- ps.coral %>% subset_samples(season == "Fall")
+
+otu_data_unt <- data.frame(ps.coral.fall@otu_table)
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.coral.fall@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+
+prepro <- feature_table_pre_process(feature_table = otu_data, meta_data=meta_data, 
+                                     sample_var = "Sample.ID", group_var = NULL, 
+                                     out_cut = 0.05, zero_cut = 0.90, lib_cut = 1000, neg_lb = FALSE)
+res.coral.sites.fall<- ANCOM(feature_table = prepro$feature_table, meta_data = prepro$meta_data, 
+      struc_zero = prepro$structure_zeros, main_var = "site", p_adj_method = "BH", 
+                 alpha = 0.05, adj_formula = NULL, rand_formula = NULL)
+
+#saveRDS(res.coral.sites.fall, file="~/oculina/community_comp/ancom_v2/res.coral.sites.fall.RDS")
+
+```
+
+```{r coral sites season heatmap}
+#res.coral.sites.fall <- readRDS("~/oculina/community_comp/ancom_v2/res.coral.sites.fall.RDS")
+out <- res.coral.sites.fall$out
+out.sig <- out[out$detected_0.6==TRUE,] 
+want <- c(out.sig$taxa_id)
+ps.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want)
+ps.sig.taxa@sam_data$site  <- factor(ps.sig.taxa@sam_data$site, levels = c("NR","RI"))
+
+
+ps.sig.subset <- merge_samples(ps.sig.taxa,"site")
+
+#library(metagMisc)
+gp <- tax_glom(ps.sig.subset, taxrank="Genus")  
+head(tax_table(gp))   # last columns are filled with NAs
+
+# Remove taxonomic levels filled with NAs
+gp2 <- phyloseq_rm_na_tax(gp)  
+head(tax_table(gp2))
+
+gp2@sam_data$site <- c("NR","RI")
+gp2@sam_data$site  <- factor(gp2@sam_data$site, levels = c("NR","RI"))
+
+
+ann_colors = list(
+    site = c(NR = "white", RI = "white")
+)
+
+heatmap.coral.sites.summer <- plot_taxa_heatmap(gp2,
+  subset.top=20,                               
+  VariableA = "site",
+  heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
+  #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
+  transformation = "log10",
+  cluster_cols=F,
+  cluster_rows=F,
+  fontsize=16,
+  angle_col = "0",
+  annotation_legend=F,
+  annotation_names_col=F,
+  annotation_colors=ann_colors
+)
+
+```
+
+
+

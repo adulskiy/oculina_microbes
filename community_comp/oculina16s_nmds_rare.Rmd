@@ -14,6 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(vegan)
 library(phyloseq)
+library(ggpubr)
+library(cowplot)
 
 #setwd("~/oculina/data")
 load("~/oculina/data/ps.rare.rev.Rdata")
@@ -79,6 +81,10 @@ nmds.alltypes.rare <- plot_ordination(ps.rare,ordinate(ps.rare,"NMDS", "bray"),c
 nmds.alltypes.rare
 #ggsave(nmds.alltypes.rare,file="~/oculina/community_comp/figures/nmds.alltypes.rare.png",width=6,height=4)
 
+ plot_ordination(ps.rare,ordinate(ps.rare,"NMDS", "bray"),color="season")+
+  stat_ellipse()+
+  theme_cowplot()
+
 nmds.alltypes.rare.site <- plot_ordination(ps.rare,ordinate(ps.rare,"NMDS", "bray"),color="type", shape="type")+
   stat_ellipse()+
   theme_cowplot()+
@@ -98,7 +104,6 @@ nmds.alltypes.rare.seas <- plot_ordination(ps.rare,ordinate(ps.rare,"NMDS", "bra
 ```
 
 ```{r reoder sample data}
-sample_data(ps.rare)[1:10]
 sample_data(ps.rare)$type <- as.factor(sample_data(ps.rare)$type)
 sample_data(ps.rare)$site <- as.factor(sample_data(ps.rare)$site)
 sample_data(ps.rare)$site <- factor(sample_data(ps.rare)$site, levels=c("NR","RI","CL"))
@@ -121,8 +126,8 @@ nmds.coral.site <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),c
   theme_cowplot()+
   scale_color_manual(name="Site",values=c("#000004","darkslategray4","darkslategray3"))+
   scale_shape_manual(name="Site",values=c(8,4,9))+
-  annotate("text", x=0.45,y=0.43, label='bolditalic(p < "0.001***")',parse=TRUE)+
-  annotate("text", x=0.45,y=0.40, label='bolditalic(p[dis] < "0.05*")',parse=TRUE)
+  annotate("text", x=0.50,y=0.42, label='bolditalic(p < "0.001***")',parse=TRUE)+
+  annotate("text", x=0.50,y=0.38, label='bolditalic(p[dis] < "0.05*")',parse=TRUE)
 
 #ggsave(nmds.coral.site,file="~/oculina/community_comp/figures/nmds.coral.rare.site.png",width=6,height=4)
 
@@ -141,10 +146,10 @@ nmds.coral.season <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray")
 nmds.coral.ss <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="symbstate", shape="symbstate")+
   stat_ellipse()+
   theme_cowplot()+
-  scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
-  scale_shape_manual(name="Symbiotic State",values=c(10, 19),labels=c("Aposymbiotic","Symbiotic"))+
+  scale_colour_manual(name="Symb. State",values=c("lightcyan3","coral4"),labels=c("Apo.","Sym.")) +
+  scale_shape_manual(name="Symb. State",values=c(10, 19),labels=c("Apo.","Sym."))+
   geom_point(size=2.5)+
-  annotate("text", x=0.45,y=0.42, label='italic(p[dis] == "n.s.")',parse=TRUE)+
+  annotate("text", x=0.45,y=0.42, label='italic(p == "n.s.")',parse=TRUE)+
   annotate("text", x=0.45,y=0.38, label='italic(p[dis] == "n.s.")',parse=TRUE)
 
 nmds.coral.ss$layers <- nmds.coral.ss$layers[-1]
@@ -190,6 +195,7 @@ nmds.coral.ss.all <- plot_ordination(ps.coral,ordinate(ps.coral,"NMDS", "bray"),
 #ggsave(nmds.coral.ss.all,file="./figures/raw/nmds.coral.ss.all.png",width=9,height=5)
 ```
 
+
 ```{r all together!}
 #library(ggpubr)
 
@@ -197,7 +203,7 @@ gg.nmds.alltypes.arranged <- ggarrange(nmds.alltypes.rare, nmds.alltypes.rare.si
 gg.nmds.coral.arranged <- ggarrange(nmds.coral.site, nmds.coral.season, nmds.coral.ss, labels=c("A)", "B)", "C)"))
 
 #ggsave(gg.nmds.alltypes.arranged,file="~/oculina/community_comp/figures/gg.nmds.alltypes.rare.arranged.png",width=10,height=12)
-#ggsave(gg.nmds.coral.arranged,file="~/oculina/community_comp/figures/gg.nmds.coral.rare.arranged.png",width=12,height=10)
+#ggsave(gg.nmds.coral.arranged,file="~/oculina/community_comp/figures/gg.nmds.coral.rare.arranged.png",width=9,height=6)
 
 ```
 

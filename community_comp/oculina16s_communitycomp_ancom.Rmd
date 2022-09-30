@@ -46,10 +46,10 @@ struc_zero = prepro$structure_zeros # Structural zero info
 # Step 2: ANCOM
 main_var = "type"; p_adj_method = "BH"; alpha = 0.05
 adj_formula = NULL; rand_formula = NULL
-res.ss = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+res.all.type = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
             alpha, adj_formula, rand_formula)
 #setwd("~/oculina/community_comp/ancom")
-#saveRDS(res.ss, file="ancom.res.ss.RDS")
+#saveRDS(res.all.type, file="~/oculina/community_comp/ancom/ancom.res.all.type.RDS")
 
 # Step 3: Volcano Plot
 # Number of taxa except structural zeros
@@ -58,8 +58,8 @@ n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 
 cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
-dat_ann = data.frame(x = min(res.ss$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-ancom.fig.all.type = res.ss$fig +  
+dat_ann = data.frame(x = min(res.all.type$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+ancom.fig.all.type = res.all.type$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
@@ -71,8 +71,11 @@ ancom.fig.all.type  # lots!
 
 ```{r ancom seawater bw sites}
 otu_data_unt <- data.frame(ps.less@otu_table)
+#subset sw
+ps.less.sw <- subset_samples(ps.less,type=="seawater")
+
 otu_data<- data.frame(t(otu_data_unt))
-meta_data = data.frame(ps.less@sam_data)
+meta_data = data.frame(ps.less.sw@sam_data)
 meta_data = meta_data %>% rename(Sample.ID = id)
 # Step 1: Data preprocessing
 feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
@@ -83,12 +86,178 @@ feature_table = prepro$feature_table # Preprocessed feature table
 meta_data = prepro$meta_data # Preprocessed metadata
 struc_zero = prepro$structure_zeros # Structural zero info
 # Step 2: ANCOM
+main_var = "site"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.sw.site = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+
+#setwd("~/oculina/community_comp/ancom")
+#saveRDS(res.sw.site, file="~/oculina/community_comp/ancom/ancom.res.sw.site.RDS")
+
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.sw.site$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+ancom.fig.sw.site = res.sw.site$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+ancom.fig.sw.site #nothing - wow
+
+#ggsave(ancom.fig.sw.site, file="~/oculina/community_comp/ancom/ancom.fig.sw.site.png")
+```
+
+```{r ancom sed bw sites}
+otu_data_unt <- data.frame(ps.less@otu_table)
+#subset sed
+ps.less.sed <- subset_samples(ps.less,type=="sediment")
+
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.less.sed@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE 
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+# Step 2: ANCOM
+main_var = "site"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.sed.site = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+
+#setwd("~/oculina/community_comp/ancom")
+#saveRDS(res.sed.site, file="~/oculina/community_comp/ancom/ancom.res.sed.site.RDS")
+
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.sw.site$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.sed.site$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #some sig for both sites
+
+#ggsave(fig, file="~/oculina/community_comp/ancom/ancom.fig.sed.site.png")
+```
+
+```{r ancom seawater bw seasons}
+otu_data_unt <- data.frame(ps.less@otu_table)
+#subset sw
+ps.less.sw <- subset_samples(ps.less,type=="seawater")
+
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.less.sw@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE 
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+# Step 2: ANCOM
+main_var = "season"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.sw.seas = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+
+#setwd("~/oculina/community_comp/ancom")
+#saveRDS(res.sw.seas, file="~/oculina/community_comp/ancom/ancom.res.sw.seas.RDS")
+
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.sw.site$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.sw.seas$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #quite a few!
+
+#ggsave(fig, file="~/oculina/community_comp/ancom/ancom.fig.sw.seas.png")
+```
+
+```{r ancom sed bw seasons}
+#otu_data_unt <- data.frame(ps.less@otu_table)
+#subset sed
+#ps.less.sed <- subset_samples(ps.less,type=="sediment")
+
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.less.sed@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+# Step 1: Data preprocessing
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE 
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
+# Step 2: ANCOM
+main_var = "season"; p_adj_method = "BH"; alpha = 0.05
+adj_formula = NULL; rand_formula = NULL
+res.sed.seas = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+            alpha, adj_formula, rand_formula)
+
+#setwd("~/oculina/community_comp/ancom")
+#saveRDS(res.sed.seas, file="~/oculina/community_comp/ancom/ancom.res.sed.seas.RDS")
+
+# Step 3: Volcano Plot
+# Number of taxa except structural zeros
+n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
+# Cutoff values for declaring differentially abundant taxa
+cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
+names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
+# Annotation data
+dat_ann = data.frame(x = min(res.sw.site$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
+fig = res.sed.seas$fig +  
+  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
+  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
+            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
+fig #a few
+
+#ggsave(fig, file="~/oculina/community_comp/ancom/ancom.fig.sed.seas.png")
+```
+
+```{r ancom types w/i NR}
+otu_data_unt <- data.frame(ps.less@otu_table)
+#subset sw
+ps.less.NR <- subset_samples(ps.less,site=="NR")
+
+otu_data<- data.frame(t(otu_data_unt))
+meta_data = data.frame(ps.less.NR@sam_data)
+meta_data = meta_data %>% rename(Sample.ID = id)
+feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
+out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE 
+prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
+                                   out_cut, zero_cut, lib_cut, neg_lb)
+feature_table = prepro$feature_table # Preprocessed feature table
+meta_data = prepro$meta_data # Preprocessed metadata
+struc_zero = prepro$structure_zeros # Structural zero info
 main_var = "type"; p_adj_method = "BH"; alpha = 0.05
 adj_formula = NULL; rand_formula = NULL
-res.ss = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
+res.all.NR = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
             alpha, adj_formula, rand_formula)
 #setwd("~/oculina/community_comp/ancom")
-#saveRDS(res.ss, file="ancom.res.ss.RDS")
+#saveRDS(res.sw.site, file="~/oculina/community_comp/ancom/ancom.res.sw.site.RDS")
 
 # Step 3: Volcano Plot
 # Number of taxa except structural zeros
@@ -98,13 +267,13 @@ cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_ta
 names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
 # Annotation data
 dat_ann = data.frame(x = min(res.ss$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-ancom.fig.all.type = res.ss$fig +  
+ancom.fig.sw.site = res.sw.site$fig +  
   geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
   geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
             size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-ancom.fig.all.type  # lots!
+ancom.fig.sw.site
 
-#ggsave(ancom.fig.all.type, file="~/oculina/community_comp/ancom/ancom.fig.ss.png")
+#ggsave(ancom.fig.sw.site, file="~/oculina/community_comp/ancom/ancom.fig.sw.site.png")
 
 ```
 
@@ -378,47 +547,13 @@ ancom.fig.ss.CL #all zero
 
 ```
 
-```{r ancom all types (coral, sw, sed)}
-otu_data_unt <- data.frame(ps.less@otu_table)
-otu_data<- data.frame(t(otu_data_unt))
-meta_data = data.frame(ps.less@sam_data)
-meta_data = meta_data %>% rename(Sample.ID = id)
-# Step 1: Data preprocessing
-feature_table = otu_data; sample_var = "Sample.ID"; group_var = NULL
-out_cut = 0.05; zero_cut = 0.90; lib_cut = 1000; neg_lb = FALSE
-prepro = feature_table_pre_process(feature_table, meta_data, sample_var, group_var, 
-                                   out_cut, zero_cut, lib_cut, neg_lb)
-feature_table = prepro$feature_table # Preprocessed feature table
-meta_data = prepro$meta_data # Preprocessed metadata
-struc_zero = prepro$structure_zeros # Structural zero info
-# Step 2: ANCOM
-main_var = "type"; p_adj_method = "BH"; alpha = 0.05
-adj_formula = NULL; rand_formula =  "~ 1 | site" #not sure if this is right
-res.site.types = ANCOM(feature_table, meta_data, struc_zero, main_var, p_adj_method, 
-            alpha, adj_formula, rand_formula)
-#saveRDS(res.site.types,file="res.site.types.RDS")
-# Step 3: Volcano Plot
-# Number of taxa except structural zeros
-n_taxa = ifelse(is.null(struc_zero), nrow(feature_table), sum(apply(struc_zero, 1, sum) == 0))
-# Cutoff values for declaring differentially abundant taxa
-cut_off = c(0.9 * (n_taxa -1), 0.8 * (n_taxa -1), 0.7 * (n_taxa -1), 0.6 * (n_taxa -1))
-names(cut_off) = c("detected_0.9", "detected_0.8", "detected_0.7", "detected_0.6")
-# Annotation data
-dat_ann = data.frame(x = min(res.ss.CL$fig$data$x), y = cut_off["detected_0.7"], label = "W[0.7]")
-ancom.fig.ss.CL = res.ss.CL$fig +  
-  geom_hline(yintercept = cut_off["detected_0.7"], linetype = "dashed") + 
-  geom_text(data = dat_ann, aes(x = x, y = y, label = label), 
-            size = 4, vjust = -0.5, hjust = 0, color = "orange", parse = TRUE)
-ancom.fig.ss.CL #all zero
-#ggsave(ancom.fig.ss.CL, file="./ancom/ancom.fig.ss.CL.png")
-```
-
 
 ## Synthesizing ANCOM results
 
 Re-read in data
 
 ```{r load ancom results}
+res.all <- readRDS("./ancom/ancom.res.all.type.RDS")
 res.ss <- readRDS("./ancom/ancom.res.ss.nonnest.RDS")
 res.season <- readRDS("./ancom/ancom.res.season.RDS")
 res.site <- readRDS("./ancom/ancom.res.site.RDS")
@@ -426,11 +561,20 @@ res.ss.NR <- readRDS("./ancom/ancom.res.ss.NR.RDS")
 res.ss.RI <- readRDS("./ancom/ancom.res.ss.RI.RDS")
 res.season.NR <- readRDS("./ancom/ancom.res.season.NR.RDS")
 res.season.RI <- readRDS("./ancom/ancom.res.season.RI.RDS")
+res.sw.site <- readRDS("./ancom/ancom.res.sw.site.RDS")
+res.sed.site <- readRDS("./ancom/ancom.res.sed.site.RDS")
+res.sw.seas <- readRDS("./ancom/ancom.res.sw.seas.RDS")
+res.sed.seas <- readRDS("./ancom/ancom.res.sed.seas.RDS")
 ```
 
 Which ones are 'significant'
 
 ```{r subset out files}
+#all types
+all.out <- res.all$out
+all.out.sig <- all.out[all.out$detected_0.8==TRUE,] #doign higher threshold bc so many
+all.out.sig # so many!
+
 #symb state
 ss.out <- res.ss$out
 ss.out.sig <- ss.out[ss.out$detected_0.6==TRUE,]
@@ -457,10 +601,21 @@ site.out <- res.site$out
 site.out.sig <- site.out[site.out$detected_0.6==TRUE,]
 site.out.sig #3
 
+# sw
+sw.site.out <- res.sw.site$out
+sw.site.out.sig <- sw.out[sw.out$detected_0.6==TRUE,]
+
 ```
 
 
 Subset the sig ones in phyloseq
+```{r all types}
+want.all <- c(all.out.sig$taxa_id)
+ps.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want.all)
+plot_bar(ps.sig.taxa,x="type",y="Abundance",fill="Genus")+
+  facet_wrap(~Genus,scales="free")
+```
+
 
 ```{r}
 want.site <- c(site.out.sig$taxa_id)
@@ -497,27 +652,48 @@ print(sig.genus.abun.seas)
 #ggsave(sig.phyl.abun.site, file="./ancom/sig.phyl.abun.site.png", width=11)
 #ggsave(sig.genus.abun.seas, file="./ancom/sig.genus.abun.seas.png",width=11)
 
+#all types
+want.all <- c(all.out.sig$taxa_id)
+all.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want.all)
+plot_bar(all.sig.taxa,x="type",y="Abundance",fill="Phylum")+
+  facet_wrap(~Phylum,scales="free")
+
+#sw
+want.sw <- c(sw.out.sig$taxa_id)
+ps.sig.taxa <- subset_taxa(ps.less,row.names(ps.less@tax_table) %in% want.sw)
+sig.fam.abun.sw.site <- plot_bar(ps.sig.taxa,x="site",y="Abundance",fill="Family")+
+  facet_wrap(~Family,scales="free")
+#ggsave(sig.fam.abun.sw.site, file="./ancom/sig.fam.abun.sw.site.png",width=11)
+
 ```
 
 # ANCOM heat map attempts
-
-Heat map attempts
-
 ```{r}
 library("microbiomeutilities")
 library("viridis")
-ps.sig.mnw <- subset_samples(ps.sig.taxa,site=="MNW")
-ps.sig.mnw.sz <- merge_samples(ps.sig.mnw,"site_zone")
-ps.sig.mnw.sz@sam_data$zone <- c("A","B")
-heat.sig.mnw <- plot_taxa_heatmap(ps.sig.mnw.sz,
-  subset.top=14,                               
-  VariableA = "zone",
+#want.site <- c(site.out.sig$taxa_id)
+#want.seas <- c(season.out.sig$taxa_id)
+#want.NR.seas <- c(NR.season.out.sig$taxa_id)
+#want.RI.seas <- c(RI.season.out.sig$taxa_id)
+
+res.site <- readRDS("./ancom/ancom.res.site.RDS")
+ps.sig.taxa.coral.site <- subset_taxa(ps.less, row.names(ps.less@tax_table) %in% want.site)
+ps.sig.site <- merge_samples(ps.sig.taxa.coral.site,"site")
+
+ps.sig.NR <- subset_samples(ps.sig.taxa,site=="NR")
+
+
+#ps.sig.mnw.sz@sam_data$zone <- c("A","B")
+heat.sig.coral.site <- plot_taxa_heatmap(ps.sig.site,
+  subset.top=10,                               
+  VariableA = "site",
   heatcolors=colorRampPalette(colors=c(viridis_pal(direction=-1,option="D")(32)))(30),
   #heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
   transformation = "log10",
   cluster_cols=F,
   cluster_rows=F
 )
+
 #pdf: 3 x 4 in
 ps.sig.mse <- subset_samples(ps.sig.taxa,site=="MSE")
 ps.sig.mse.sz <- merge_samples(ps.sig.mse,"site_zone")
@@ -546,7 +722,7 @@ heat.sig.tnw <- plot_taxa_heatmap(ps.sig.tnw.sz,
 ```
 
 
-# Heat maps!
+# heat maps!
 
 ```{r}
 #devtools::install_github("microsud/microbiomeutilities")
@@ -571,14 +747,15 @@ heat.sample <- plot_taxa_heatmap(ps.less.nosq,
   transformation = "log10",
   cluster_cols=T
 )
-ps.trim.nosq.mnw <- subset_samples(ps.trim.nosq,site=="MNW")
-heat.mnw <- plot_taxa_heatmap(ps.trim.nosq.mnw,
+ps.less.nosq.NR <- subset_samples(ps.less.nosq,site=="NR")
+heat.NR <- plot_taxa_heatmap(ps.less.nosq.NR, #doesn't work :(
   subset.top = 20,
   VariableA = "zone",
   heatcolors = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(100),
   transformation = "log10",
   cluster_cols=T
 )
+
 ps.trim.nosq.mse <- subset_samples(ps.trim.nosq,site=="MSE")
 heat.mse <- plot_taxa_heatmap(ps.trim.nosq.mse,
   subset.top = 20,

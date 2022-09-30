@@ -87,27 +87,27 @@ for (i in 1:nrow(tax.clean)){
   }
 }
 
-tax_table(pd.rare) <- as.matrix(tax.clean)
+tax_table(ps.rare) <- as.matrix(tax.clean)
 
 
 ```
 
 
-
 ### Stats
 
 ```{r adonis types}
+set.seed(123)
 seq.rare <- data.frame(otu_table(ps.rare))
 dist.rare <- vegdist(seq.rare, method="bray")
 samdf.rare <- data.frame(sample_data(ps.rare))
 row.names(samdf.rare)==row.names(seq.rare)
-set.seed(1234)
 
 adonis2(dist.rare ~ type, data=samdf.rare, permutations=999)
 #         Df SumOfSqs      R2      F Pr(>F)    
 #type      2   4.6321 0.17727 6.8947  0.001 ***
 #Residual 64  21.4990 0.82273                  
 #Total    66  26.1311 1.00000      
+
 
 bet.all <- betadisper(dist.rare,samdf.rare$type)
 plot(bet.all) # look very dif
@@ -116,6 +116,10 @@ anova(bd) # sig dif in dispersion, but since the centroids clearly look very dif
 #          Df  Sum Sq  Mean Sq F value    Pr(>F)    
 #Groups     2 0.49696 0.248478  65.475 3.313e-16 ***
 #Residuals 64 0.24288 0.003795     
+pairwise.adonis(seq.rare, factors = samdf.rare$type, permutations = 999) #all sig dif (p = 0.001)
+
+pairwise.adonis(seq.rare, factors = samdf.rare$site, permutations = 999)
+# NR vs CL and NR vs RI sig dif
 
 bet.all <- betadisper(dist.rare,samdf.rare$season)
 plot(bet.all) #overlap a fair amount
@@ -146,8 +150,6 @@ adonis2(dist.rare ~ type*season, data=samdf.rare, permutations=999)
 #Residual    61    46795 0.78521                  
 #Total       66    59595 1.00000 
 
-
-
 adonis2(dist.rare ~ type+site, data=samdf.rare, permutations=999)
 #          Df SumOfSqs      R2      F Pr(>F)    
 #type       2     8005 0.13432 5.1449  0.001 ***
@@ -172,31 +174,171 @@ adonis2(dist.rare ~ type+season+site, data=samdf.rare, permutations=999)
 # order of terms matters for adonis... read more here https://stats.stackexchange.com/questions/312302/adonis-in-vegan-order-of-variables-non-nested-with-one-degree-of-freedom-for
 ```
 
-```{r stats for coral}
+```{r adonis type comparisons within sites}
+# NR
+ps.NR <- subset_samples(ps.rare,site=="NR")
+seq.NR <- data.frame(otu_table(ps.NR))
+dist.NR <- vegdist(seq.NR, method="bray")
+samdf.NR <- data.frame(sample_data(ps.NR))
+row.names(samdf.NR)==row.names(seq.NR)
 
+pairwise.adonis(seq.NR, factors = samdf.NR$type, permutations = 999)
+
+# RI
+ps.RI <- subset_samples(ps.rare,site=="RI")
+seq.RI <- data.frame(otu_table(ps.RI))
+dist.RI <- vegdist(seq.RI, method="bray")
+samdf.RI <- data.frame(sample_data(ps.RI))
+row.names(samdf.RI)==row.names(seq.RI)
+
+pairwise.adonis(seq.RI, factors = samdf.RI$type, permutations = 999)
+
+
+# CL
+ps.CL <- subset_samples(ps.rare,site=="CL")
+seq.CL <- data.frame(otu_table(ps.CL))
+dist.CL <- vegdist(seq.CL, method="bray")
+samdf.CL <- data.frame(sample_data(ps.CL))
+row.names(samdf.CL)==row.names(seq.CL)
+
+pairwise.adonis(seq.CL, factors = samdf.CL$type, permutations = 999)
+```
+
+```{r adonis types within seasons}
+# Summer
+ps.summer <- subset_samples(ps.rare,season=="Summer")
+seq.summer <- data.frame(otu_table(ps.summer))
+dist.summer <- vegdist(seq.summer, method="bray")
+samdf.summer <- data.frame(sample_data(ps.summer))
+row.names(samdf.summer)==row.names(seq.summer)
+
+pairwise.adonis(seq.summer, factors = samdf.summer$type, permutations = 999)
+
+# Fall
+ps.fall <- subset_samples(ps.rare,season=="Fall")
+seq.fall <- data.frame(otu_table(ps.fall))
+dist.fall <- vegdist(seq.fall, method="bray")
+samdf.fall <- data.frame(sample_data(ps.fall))
+row.names(samdf.fall)==row.names(seq.fall)
+
+pairwise.adonis(seq.fall, factors = samdf.fall$type, permutations = 999)
+```
+
+
+```{r adonis seawater}
+ps.sw <- subset_samples(ps.rare,type=="seawater")
+seq.sw <- data.frame(otu_table(ps.sw))
+dist.sw <- vegdist(seq.sw, method="bray")
+samdf.sw <- data.frame(sample_data(ps.sw))
+row.names(samdf.sw)==row.names(seq.sw)
+
+#site
+bet.all <- betadisper(dist.sw,samdf.sw$site)
+adonis2(dist.sw ~ site, data=samdf.sw, permutations = 999) #ns
+bd <- betadisper(dist.sw, samdf.sw$site)
+anova(bd) #ns
+
+#season
+bet.all <- betadisper(dist.sw,samdf.sw$season)
+adonis2(dist.sw ~ season, data=samdf.sw, permutations = 999) #sig (<0.01 **)
+bd <- betadisper(dist.sw, samdf.sw$season)
+anova(bd) #ns
+
+```
+
+```{r adonis sediment}
+ps.sed <- subset_samples(ps.rare,type=="sediment")
+seq.sed <- data.frame(otu_table(ps.sed))
+dist.sed <- vegdist(seq.sed, method="bray")
+samdf.sed <- data.frame(sample_data(ps.sed))
+row.names(samdf.sed)==row.names(seq.sed)
+
+#site
+adonis2(dist.sed ~ site, data=samdf.sed, permutations = 999) #<0.1 .
+bd <- betadisper(dist.sed, samdf.sed$site)
+anova(bd) #ns
+
+#season
+adonis2(dist.sed ~ season, data=samdf.sed, permutations = 999) #sig (<0.01 **)
+bd <- betadisper(dist.sed, samdf.sed$season)
+anova(bd) #ns
+
+
+```
+
+```{r test for overlap in coral, sw, and sed at each site}
+### NR
+ps.rare.NR <- subset_samples(ps.rare,site=="NR")
+seq.rare.NR <- data.frame(otu_table(ps.rare.NR))
+dist.rare.NR <- vegdist(seq.rare.NR, method="bray")
+samdf.rare.NR <- data.frame(sample_data(ps.rare.NR))
+row.names(samdf.rare.NR)==row.names(seq.rare.NR)
+
+adonis2(dist.rare.NR ~ type, data=samdf.rare.NR, permutations=999)  # 0.001
+
+bet.all <- betadisper(dist.rare.NR,samdf.rare.NR$type)
+plot(bet.all) # look very dif
+bd <- betadisper(dist.rare.NR, samdf.rare.NR$type)
+anova(bd) # <0.001 ***
+pairwise.adonis(seq.rare.NR, factors = samdf.rare.NR$type, permutations = 999)
+#                 pairs  F.Model        R2 p.value p.adjusted
+#1    coral vs seawater 4.806540 0.2107527   0.001      0.001
+#2    coral vs sediment 2.928864 0.1547300   0.001      0.001
+#3 seawater vs sediment 5.807710 0.4206136   0.005      0.005
+
+
+### RI
+ps.rare.RI <- subset_samples(ps.rare,site=="RI")
+seq.rare.RI <- data.frame(otu_table(ps.rare.RI))
+dist.rare.RI <- vegdist(seq.rare.RI, method="bray")
+samdf.rare.RI <- data.frame(sample_data(ps.rare.RI))
+row.names(samdf.rare.RI)==row.names(seq.rare.RI)
+
+adonis2(dist.rare.RI ~ type, data=samdf.rare.RI, permutations=999)  # 0.001
+
+bet.all <- betadisper(dist.rare.RI,samdf.rare.RI$type)
+plot(bet.all) # look very dif
+bd <- betadisper(dist.rare.RI, samdf.rare.RI$type)
+anova(bd) # <0.001 ***
+pairwise.adonis(seq.rare.RI, factors = samdf.rare.RI$type, permutations = 999)
+
+### CL
+ps.rare.CL <- subset_samples(ps.rare,site=="CL")
+seq.rare.CL <- data.frame(otu_table(ps.rare.CL))
+dist.rare.CL <- vegdist(seq.rare.CL, method="bray")
+samdf.rare.CL <- data.frame(sample_data(ps.rare.CL))
+row.names(samdf.rare.CL)==row.names(seq.rare.CL)
+
+adonis2(dist.rare.CL ~ type, data=samdf.rare.CL, permutations=999)  # 0.001
+
+bet.all <- betadisper(dist.rare.CL,samdf.rare.CL$type)
+plot(bet.all) # look very dif
+bd <- betadisper(dist.rare.CL, samdf.rare.CL$type)
+anova(bd) # <0.001 ***
+pairwise.adonis(seq.rare.CL, factors = samdf.rare.CL$type, permutations = 999)
+
+
+# two-way adonis should actually just do this for me...
+adonis2(dist.rare ~ type*site, data=samdf.coral, permutations=999) 
+```
+
+
+```{r stats for coral}
+ps.coral <- subset_samples(ps.rare,type=="coral")
 seq.coral <- data.frame(otu_table(ps.coral))
 dist.coral <- vegdist(seq.coral, method="bray")
 samdf.coral <- data.frame(sample_data(ps.coral))
 row.names(samdf.coral)==row.names(seq.coral)
 
+adonis2(dist.coral ~ site, data=samdf.coral, permutations=999) #< 0.001 ***
 
-adonis2(dist.coral ~ site, data=samdf.coral, permutations=999)
-#         Df SumOfSqs      R2      F Pr(>F)    
-#site      2     8045 0.06149 1.3758  0.001 ***
-#Residual 42   122801 0.93851                  
-#Total    44   130846 1.00000   
+pairwise.adonis(seq.coral, factors = samdf.coral$site, permutations = 999) #all sig dif
+#NR vs RI (**), NR vs. CL (***), RI vs CL (**)
 
-adonis2(dist.coral ~ season, data=samdf.coral, permutations=999) 
-#         Df SumOfSqs      R2      F Pr(>F)    
-#season    1     5253 0.04014 1.7984  0.001 ***
-#Residual 43   125594 0.95986                  
-#Total    44   130846 1.00000             
 
-adonis2(dist.coral ~ symbstate, data=samdf.coral, permutations=999)
-#          Df SumOfSqs      R2      F Pr(>F)
-#symbstate  1   0.4102 0.02685 1.1036   0.26
-#Residual  40  14.8678 0.97315              
-#Total     41  15.2780 1.00000
+adonis2(dist.coral ~ season, data=samdf.coral, permutations=999) # < 0.001 ***     
+
+adonis2(dist.coral ~ symbstate, data=samdf.coral, permutations=999) #ns
 
 # will look at site and season as main effects as well as their interaction term
 adonis2(dist.coral ~ site*season, data=samdf.coral, permutations=999)
@@ -263,15 +405,250 @@ permutest(bet.all, pairwise = TRUE, permutations = 999) #ns
 ```
 
 
+```{r calculate core abundance}
+# calculating core abundances #
+core.sqs <- tax_table(pseq.core)
+core.sqs.ids <- row.names(core.sqs)
+core.sqs.ids
+ps.rare.trim.rel <- transform_sample_counts(ps.rare.trim, function(x) x / sum(x))
+seq.rare.rel <- data.frame(otu_table(ps.rare.trim.rel))
+tax.core <- tax_table(ps.rare.trim.rel)
+seq.core <- seq.rare.rel %>% select(c(core.sqs.ids))
+core.rel <- data.frame(colMeans(seq.core))
+total.rel <- data.frame(colMeans(seq.rare.rel))
+total.rel.ordered <- data.frame(total.rel[order(-total.rel$colMeans.seq.rare.rel.),,drop=FALSE])
+```
 
-```{r plot heatmap}
-ps.coral.pt <- prune_taxa(names(sort(taxa_sums(ps.coral),TRUE)[1:300]), ps.coral)
-plot_heatmap(ps.coral.pt)
+Composition stats
+```{r composition stats}
+seq.rare <- data.frame(otu_table(ps.rare))
+dist.rare <- vegdist(seq.rare, method="bray")
+samdf.rare <- data.frame(sample_data(ps.rare))
+row.names(samdf.rare)==row.names(seq.rare)
+ps.coral <- subset_samples(ps.rare,type=="coral")
+
+# Merges ASVs that have the same taxonomy rank (Genus)
+gp = tax_glom(ps.coral, taxrank = "Genus")
+
+# Define group/condition type
+site = levels(sample_data(gp)$site)[1] 
+
+# Retrieve sample name of the defined type
+sn = sample_names(sample_data(gp)[sample_data(gp)$site == "NR",])
+
+# Calculate taxa sum of the selected samples
+top5 = head(sort(rowSums(otu_table(gp)[,sn]), decreasing = TRUE), 5)
+
+# Combine count and taxonomyTable
+top5 = cbind(as.data.frame(tax_table(gp)[names(top5),]), Count = top5)
+```
+
+```{r core - coral}
+pseq.core.coral <- core(ps.coral, detection = 0, prevalence = .5)
+pseq.core.coral #11 taxa
+#saving
+#core.coral.tax <- data.frame(pseq.core.coral@tax_table)
+#write.csv(core.coral.tax,"core.coral.tax.csv")
+ps_glom <- tax_glom(pseq.core.coral, "Genus")
+#ps0 <- transform_sample_counts(ps_glom, function(x) x / sum(x))
+ps1 <- merge_samples(ps_glom, "site")
+#ps2 <- transform_sample_counts(ps1, function(x) x / sum(x))
+plot_bar(ps1, fill="Genus")+
+  geom_bar(stat="identity")+
+  theme_cowplot()+
+  scale_fill_brewer(palette="BrBG")
+#ggsave(file="core.bar.pdf",width=8)
+
+```
+
+```{r core - seawater}
+ps.sw <- subset_samples(ps.rare,type=="seawater")
+pseq.core.sw <- core(ps.sw, detection = 0, prevalence = .5)
+pseq.core.sw #75 taxa?? wow
+#saving
+#core.sw.tax <- data.frame(pseq.core.sw@tax_table)
+#write.csv(core.sw.tax,"core.sw.tax.csv")
+ps_glom <- tax_glom(pseq.core.sw, "Genus")
+#ps0 <- transform_sample_counts(ps_glom, function(x) x / sum(x))
+ps1 <- merge_samples(ps_glom, "site")
+#ps2 <- transform_sample_counts(ps1, function(x) x / sum(x))
+plot_bar(ps1, fill="Genus")+
+  geom_bar(stat="identity")+
+  theme_cowplot()+
+  scale_fill_brewer(palette="BrBG")
+#ggsave(file="core.bar.pdf",width=8)
 
 
 ```
 
+```{r coral most abundant taxa}
+# To get stats about most abundant groups
+# All coral:
+ps.rare.coral.rel <- transform_sample_counts(ps.coral, function(x) x / sum(x))
+seq.rare.coral.rel <- data.frame(otu_table(ps.rare.coral.rel))
+tax.core.coral <- tax_table(ps.rare.coral.rel)
+seq.core.coral <- seq.rare.coral.rel %>% select(c(core.coral.sqs.ids))
+core.rel <- data.frame(colMeans(seq.core.coral))
+total.rel <- data.frame(colMeans(seq.rare.coral.rel))
+total.rel.coral.ordered <- data.frame(total.rel[order(-total.rel$colMeans.seq.rare.coral.rel.),,drop=FALSE])
 
+total.rel.coral.ordered <- total.rel.coral.ordered %>% rownames_to_column("sq")
+tax.core.coral <- tax.core.coral %>% as("matrix") %>% subset(select = colSums(!is.na(.)) > 0) %>% as_tibble(rownames = "sq") -> taxon.tbl
+
+coral.rel.tax <- left_join(total.rel.coral.ordered, tax.core.coral, by="sq", copy=TRUE)
+head(coral.rel.tax)
+#write.csv(coral.rel.tax,"coral.rel.tax.csv")
+
+
+# Coral - NR
+ps.coral.NR <- subset_samples(ps.coral,site=="NR")
+#pseq.core.coral <- core(ps.coral, detection = 0, prevalence = .5)
+core.sqs <- tax_table(pseq.core.coral)
+core.sqs.ids <- row.names(core.sqs)
+
+ps.rare.rel <- transform_sample_counts(ps.coral.NR, function(x) x / sum(x))
+seq.rare.rel <- data.frame(otu_table(ps.rare.rel))
+tax.core <- tax_table(ps.rare.rel)
+seq.core <- seq.rare.rel %>% select(c(core.sqs.ids))
+core.rel <- data.frame(colMeans(seq.core))
+total.rel <- data.frame(colMeans(seq.rare.rel))
+total.rel.ordered <- data.frame(total.rel[order(-total.rel$colMeans.seq.rare.rel.),,drop=FALSE])
+
+total.rel.ordered <- total.rel.ordered %>% rownames_to_column("sq")
+tax.core <- tax.core %>% as("matrix") %>% subset(select = colSums(!is.na(.)) > 0) %>% as_tibble(rownames = "sq") -> taxon.tbl
+
+coral.NR.rel.tax <- left_join(total.rel.ordered, tax.core, by="sq", copy=TRUE)
+head(coral.NR.rel.tax)
+#write.csv(coral.NR.rel.tax,"coral.NR.rel.tax.csv")
+
+# Coral - RI
+ps.coral.RI <- subset_samples(ps.coral,site=="RI")
+#pseq.core.coral <- core(ps.coral, detection = 0, prevalence = .5)
+core.sqs <- tax_table(pseq.core.coral)
+core.sqs.ids <- row.names(core.sqs)
+
+ps.rare.rel <- transform_sample_counts(ps.coral.RI, function(x) x / sum(x))
+seq.rare.rel <- data.frame(otu_table(ps.rare.rel))
+tax.core <- tax_table(ps.rare.rel)
+seq.core <- seq.rare.rel %>% select(c(core.sqs.ids))
+core.rel <- data.frame(colMeans(seq.core))
+total.rel <- data.frame(colMeans(seq.rare.rel))
+total.rel.ordered <- data.frame(total.rel[order(-total.rel$colMeans.seq.rare.rel.),,drop=FALSE])
+
+total.rel.ordered <- total.rel.ordered %>% rownames_to_column("sq")
+tax.core <- tax.core %>% as("matrix") %>% subset(select = colSums(!is.na(.)) > 0) %>% as_tibble(rownames = "sq") -> taxon.tbl
+
+coral.RI.rel.tax <- left_join(total.rel.ordered, tax.core, by="sq", copy=TRUE)
+head(coral.RI.rel.tax)
+#write.csv(coral.RI.rel.tax,"coral.RI.rel.tax.csv")
+
+# Coral - CL
+ps.coral.CL <- subset_samples(ps.coral,site=="CL")
+#pseq.core.coral <- core(ps.coral, detection = 0, prevalence = .5)
+core.sqs <- tax_table(pseq.core.coral)
+core.sqs.ids <- row.names(core.sqs)
+
+ps.rare.rel <- transform_sample_counts(ps.coral.CL, function(x) x / sum(x))
+seq.rare.rel <- data.frame(otu_table(ps.rare.rel))
+tax.core <- tax_table(ps.rare.rel)
+seq.core <- seq.rare.rel %>% select(c(core.sqs.ids))
+core.rel <- data.frame(colMeans(seq.core))
+total.rel <- data.frame(colMeans(seq.rare.rel))
+total.rel.ordered <- data.frame(total.rel[order(-total.rel$colMeans.seq.rare.rel.),,drop=FALSE])
+
+total.rel.ordered <- total.rel.ordered %>% rownames_to_column("sq")
+tax.core <- tax.core %>% as("matrix") %>% subset(select = colSums(!is.na(.)) > 0) %>% as_tibble(rownames = "sq") -> taxon.tbl
+
+coral.CL.rel.tax <- left_join(total.rel.ordered, tax.core, by="sq", copy=TRUE)
+head(coral.CL.rel.tax)
+#write.csv(coral.CL.rel.tax,"coral.CL.rel.tax.csv")
+```
+
+```{r}
+# Seawater:
+ps.sw <- subset_samples(ps.sw,type=="seawater")
+pseq.core.sw <- core(ps.sw, detection = 0, prevalence = .5)
+core.sqs <- tax_table(pseq.core.sw)
+core.sqs.ids <- row.names(core.sqs)
+
+ps.rare.rel <- transform_sample_counts(ps.sw, function(x) x / sum(x))
+seq.rare.rel <- data.frame(otu_table(ps.rare.rel))
+tax.core <- tax_table(ps.rare.rel)
+seq.core <- seq.rare.rel %>% select(c(core.sqs.ids))
+core.rel <- data.frame(colMeans(seq.core))
+total.rel <- data.frame(colMeans(seq.rare.rel))
+total.rel.ordered <- data.frame(total.rel[order(-total.rel$colMeans.seq.rare.rel.),,drop=FALSE])
+
+total.rel.ordered <- total.rel.ordered %>% rownames_to_column("sq")
+tax.core <- tax.core %>% as("matrix") %>% subset(select = colSums(!is.na(.)) > 0) %>% as_tibble(rownames = "sq") -> taxon.tbl
+
+sw.rel.tax <- left_join(total.rel.ordered, tax.core, by="sq", copy=TRUE)
+head(sw.rel.tax)
+#write.csv(sw.rel.tax,"sw.rel.tax.csv")
+
+# Sediment:
+ps.sed <- subset_samples(ps.sed,type=="sediment")
+pseq.core.sed <- core(ps.sed, detection = 0, prevalence = .5)
+core.sqs <- tax_table(pseq.core.sed)
+core.sqs.ids <- row.names(core.sqs)
+
+ps.rare.rel <- transform_sample_counts(ps.sed, function(x) x / sum(x))
+seq.rare.rel <- data.frame(otu_table(ps.rare.rel))
+tax.core <- tax_table(ps.rare.rel)
+seq.core <- seq.rare.rel %>% select(c(core.sqs.ids))
+core.rel <- data.frame(colMeans(seq.core))
+total.rel <- data.frame(colMeans(seq.rare.rel))
+total.rel.ordered <- data.frame(total.rel[order(-total.rel$colMeans.seq.rare.rel.),,drop=FALSE])
+
+total.rel.ordered <- total.rel.ordered %>% rownames_to_column("sq")
+tax.core <- tax.core %>% as("matrix") %>% subset(select = colSums(!is.na(.)) > 0) %>% as_tibble(rownames = "sq") -> taxon.tbl
+
+sed.rel.tax <- left_join(total.rel.ordered, tax.core, by="sq", copy=TRUE)
+head(sed.rel.tax)
+#write.csv(sed.rel.tax,"sed.rel.tax.csv")
+
+```
+
+
+```{r calculate coral core abundance for all samples}
+# calculating core abundances #
+ps.coral <- subset_samples(ps.rare,type=="coral")
+pseq.core.coral <- core(ps.coral, detection = 0, prevalence = .5)
+pseq.core.coral #11 taxa
+
+#saving
+#core.coral.tax <- data.frame(pseq.core.coral@tax_table)
+#write.csv(core.coral.tax,"core.coral.tax.csv")
+ps_glom <- tax_glom(pseq.core.coral, "Genus")
+#ps0 <- transform_sample_counts(ps_glom, function(x) x / sum(x))
+ps1 <- merge_samples(ps_glom, "site")
+#ps2 <- transform_sample_counts(ps1, function(x) x / sum(x))
+plot_bar(ps1, fill="Genus")+
+  geom_bar(stat="identity")+
+  theme_cowplot()+
+  scale_fill_brewer(palette="BrBG")
+#ggsave(file="core.bar.pdf",width=8)
+```
+
+```{r core - seawater}
+ps.sed <- subset_samples(ps.rare,type=="sediment")
+pseq.core.sed <- core(ps.sed, detection = 0, prevalence = .5)
+pseq.core.sed #29 taxa
+#saving
+#core.sed.tax <- data.frame(pseq.core.sed@tax_table)
+#write.csv(core.sed.tax,"core.sed.tax.csv")
+ps_glom <- tax_glom(pseq.core.sed, "Genus")
+#ps0 <- transform_sample_counts(ps_glom, function(x) x / sum(x))
+ps1 <- merge_samples(ps_glom, "site")
+#ps2 <- transform_sample_counts(ps1, function(x) x / sum(x))
+plot_bar(ps1, fill="Genus")+
+  geom_bar(stat="identity")+
+  theme_cowplot()+
+  scale_fill_brewer(palette="BrBG")
+#ggsave(file="core.bar.pdf",width=8)
+
+
+```
 ```{r bubble plot}
 library("reshape2")
 library("stringr")

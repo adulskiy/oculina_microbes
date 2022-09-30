@@ -66,6 +66,7 @@ ps.coral <- subset_samples(ps.less,type=="coral")
 #convert density to numeric
 sample_data(ps.coral)$density <- as.numeric(sample_data(ps.coral)$density)
 
+
 ```
 
 ```{r make NMDS plots (all types)}
@@ -76,60 +77,82 @@ library(cowplot)
 nmds.alltypes <- plot_ordination(ps.less,ordinate(ps.less,"NMDS", "bray"),color="type", shape="type")+
   stat_ellipse()+
   theme_cowplot()+
-  scale_color_manual(name="Type",values=c("bisque2","paleturquoise3","chocolate4"))+
-  scale_shape_manual(name="Type",values=c(8,4,9))+
-  #xlab("Axis 1 (25.8%)")+
-  #ylab("Axis 2 (22.5%)")+
-  #ggtitle("Rarefied (All)")+
+  scale_color_manual(name="Type",values=c("bisque2","paleturquoise3","chocolate4"), labels=c("Coral","Seawater","Sediment"))+
+  scale_shape_manual(name="Type",values=c(16,15,17), labels=c("Coral","Seawater","Sediment"))+
   facet_wrap(~forcats::fct_relevel(site, "NR", "RI", "CL"))
 
 #ggsave(nmds.alltypes,file="./figures/raw/nmds.alltypes.png",width=8,height=4)
+```
+
+```{r reoder sample data}
+sample_data(ps.less)[1:10]
+sample_data(ps.less)$type <- as.factor(sample_data(ps.less)$type)
+sample_data(ps.less)$site <- as.factor(sample_data(ps.less)$site)
+sample_data(ps.less)$season <- as.factor(sample_data(ps.less)$season)
+levels(sample_data(ps.less)$site)
 
 ```
+
 
 ```{r make NMDS plots (just coral)}
 #library(ggpubr)
 #library(cowplot)
 #setwd("~/oculina/community_comp")
 
-
 nmds.coral.site <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="site", shape="site")+
   stat_ellipse()+
   theme_cowplot()+
   scale_color_manual(name="Site",values=c("darkslategray3","darkslategray4","#000004"))+
-  scale_shape_manual(name="Site",values=c(8,4,9))#+
-#  ggtitle("Rarefied (Coral)")
+  scale_shape_manual(name="Site",values=c(8,4,9))+
+  annotate("text", x=0.45,y=0.5, label='bolditalic(p < "0.001***")',parse=TRUE)+
+  annotate("text", x=0.45,y=0.45, label='italic(p[dis] == "n.s.")',parse=TRUE)
+
+
+#library(data.table)
+nmds.coral.site.df <- data.table(nmds.coral.site$data)
+nmds.coral.site.df$site <- as.factor(nmds.coral.site.df$site)
+nmds.coral.site.df$site <- relevel(nmds.coral.site.df$site, ref="NR")
+nmds.coral.site$data <- nmds.coral.site.df
+print(nmds.coral.site)
 
 nmds.coral.season <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="season", shape="season")+
   stat_ellipse()+
   theme_cowplot()+
-  scale_color_manual(name="Season",values=c("darkorchid4","goldenrod1"))+
-  scale_shape_manual(name="Season",values=c(8,4))#+
- # ggtitle("Rarefied (Coral)")
+  scale_color_manual(name="Season",values=c("goldenrod1","darkorchid4"))+
+  scale_shape_manual(name="Season",values=c(8,4))+
+  annotate("text", x=0.45,y=0.5, label='bolditalic(p < "0.001***")',parse=TRUE)+
+  annotate("text", x=0.45,y=0.45, label='italic(p[dis] == "n.s.")',parse=TRUE)
+
+nmds.coral.season.df <- data.table(nmds.coral.season$data)
+nmds.coral.season.df$season <- as.factor(nmds.coral.season.df$season)
+nmds.coral.season.df$season <- relevel(nmds.coral.season.df$season, ref="Summer")
+nmds.coral.season$data <- nmds.coral.season.df
+print(nmds.coral.season)
 
 nmds.coral.ss <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"),color="symbstate", shape="symbstate")+
   stat_ellipse()+
   theme_cowplot()+
   scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic")) +
-  scale_shape_manual(name="Symbiotic State",values=c(8,4),labels=c("Aposymbiotic","Symbiotic"))
+  scale_shape_manual(name="Symbiotic State",values=c(10, 19),labels=c("Aposymbiotic","Symbiotic"))+
+  geom_point(size=2.5)+
+  annotate("text", x=0.45,y=0.5, label='italic(p[dis] == "n.s.")',parse=TRUE)+
+  annotate("text", x=0.45,y=0.45, label='italic(p[dis] == "n.s.")',parse=TRUE)
+
+nmds.coral.ss$layers <- nmds.coral.ss$layers[-1]
 
 
-nmds.coral.sd <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"), color="density",shape="site")+
+#nmds.coral.sd <- plot_ordination(ps.coral, ordinate(ps.coral,"NMDS", "bray"), color="density",shape="site")+
  # stat_ellipse()+
-  theme_cowplot()+
-  geom_point(size=3)+
-  scale_color_continuous(high = "#132B43", low = "#CFEDF6")+
+#  theme_cowplot()+
+#  geom_point(size=3)+
+#  scale_color_continuous(high = "#132B43", low = "#CFEDF6")+
  # scale_colour_manual(name="Symbiotic State",values=c("lightcyan3","coral4"),labels=c("Aposymbiotic","Symbiotic"))
 
-nmds.coral.site
-nmds.coral.season
-nmds.coral.ss
-nmds.coral.sd
 
 
-#ggsave(nmds.coral.site,file="./figures/raw/nmds.coral.site.png",width=8,height=4)
-#ggsave(nmds.coral.season,file="./figures/raw/nmds.coral.season.png",width=8,height=4)
-#ggsave(nmds.coral.ss,file="./figures/raw/nmds.coral.ss.png",width=8,height=4)
+#ggsave(nmds.coral.site,file="./figures/raw/nmds.coral.site.png",width=6,height=4)
+#ggsave(nmds.coral.season,file="./figures/raw/nmds.coral.season.png",width=6,height=4)
+#ggsave(nmds.coral.ss,file="./figures/raw/nmds.coral.ss.png",width=6,height=4)
 #ggsave(nmds.coral.sd,file="./figures/raw/nmds.coral.sd.png",width=8,height=4)
 
 

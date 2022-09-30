@@ -4,6 +4,8 @@ output:
   word_document: default
   html_document: default
 date: '2022-08-17'
+editor_options: 
+  chunk_output_type: console
 ---
 ### Based on DADA2 Pipeline 1.16 Walkthrough & Nicola Kriefall's Moorea holobiont analysis
 
@@ -26,6 +28,9 @@ library(stats)
 library(MuMIn)
 library(sjPlot)
 library(webshot)
+library(MASS)
+library(btools)
+library(gtsummary)
 ```
 
 
@@ -33,7 +38,8 @@ library(webshot)
 
 ```{r read in data}
 #setwd("~/oculina/data/")
-samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE) row.names(samdf) <- samdf$id
+samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE) 
+row.names(samdf) <- samdf$id
 load("~/oculina/data/taxa2.rev.Rdata")
 ```
 
@@ -100,7 +106,226 @@ df.div.coral.NR <- subset(df.div.coral,site=="NR")
 df.div.coral.RI <- subset(df.div.coral,site=="RI")
 df.div.coral.CL <- subset(df.div.coral,site=="CL")
 df.div.coral.NR.RI <- subset(df.div.coral,site %in% c("NR","RI"))
+
+load("~/oculina/data/ps.less.tree.RDS")
+pd.div <- estimate_pd(ps.less.tree)
+row.names(df.div) <- df.div$id
+df.div.pd <- merge(df.div,pd.div,by=0)
 ```
+
+```{r Summary statistics all types}
+library(gtsummary)
+
+# all types
+df1 <- df.div %>% select(Shannon, even, Observed, Chao1, type)
+tbl.all.site <- tbl_summary(df1, by = type) %>%
+  add_p(test = Shannon ~ "aov") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+aov.sha <- (aov(Shannon ~ type, data=df1))
+TukeyHSD(aov.sha)
+dunnTest(even~type, data=df1, method="bonferroni") #coral-sed, sw-sed sig
+dunnTest(Observed~type, data=df1, method="bonferroni") #all sig
+dunnTest(Chao1~type, data=df1, method="bonferroni") #coral-sed sig
+
+df2 <- df.div %>% select(Shannon, even, Observed, Chao1, season)
+tbl_summary(df2, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sha <- df2 %>% select(Shannon, season)
+tbl_summary(df.sha, by=season) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+df2 <- df.div %>% select(Shannon, even, Observed, Chao1, site)
+tbl_summary(df2, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+df.sha <- df2 %>% select(Shannon, site)
+tbl_summary(df.sha, by=site) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+
+# Faith's D
+df <- df.div.pd %>% select(PD, type)
+tbl_summary(df, by = type) %>%
+  add_p() %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+
+# look at season differences for sed + sw
+##sw
+df.sw.seas <- df.div %>%
+  subset(type == "seawater") %>%
+  select(Shannon, even, Observed, Chao1, season)
+
+tbl_summary(df.sw.seas, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>%
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sw.seas.sha <- df.sw.seas %>% select(Shannon, season)
+tbl_summary(df.sw.seas.sha, by=season) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+# Faith's D for sw seasons
+df <- df.div.pd %>% subset(type == "seawater") %>% select(PD, season)
+tbl_summary(df, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+
+df.sw.site <- df.div %>%
+  subset(type == "seawater") %>%
+  select(Shannon, even, Observed, Chao1, site)
+
+tbl_summary(df.sw.site, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>%
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sw.site.sha <- df.sw.site %>% select(Shannon, site)
+tbl_summary(df.sw.site.sha, by=site) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+# Faith's D for sw sites
+df <- df.div.pd %>% subset(type == "seawater") %>% select(PD, site)
+tbl_summary(df, by = site) %>%
+  add_p() %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+## sediment
+df.sed.seas <- df.div %>%
+  subset(type == "sediment") %>%
+  select(Shannon, even, Observed, Chao1, season)
+
+tbl_summary(df.sed.seas, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>%
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sed.seas.sha <- df.sed.seas %>% select(Shannon, season)
+tbl_summary(df.sed.seas.sha, by=season) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+# Faith's D for sw seasons
+df <- df.div.pd %>% subset(type == "sediment") %>% select(PD, season)
+tbl_summary(df, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sed.site <- df.div %>%
+  subset(type == "sediment") %>%
+  select(Shannon, even, Observed, Chao1, site)
+
+tbl_summary(df.sed.site, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>%
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df.sed.site.sha <- df.sed.site %>% select(Shannon, site)
+tbl_summary(df.sed.site.sha, by=site) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+# Faith's D for sw sites
+df <- df.div.pd %>% subset(type == "sediment") %>% select(PD, site)
+tbl_summary(df, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+tbl.all.site %>%
+  as_flex_table() %>%
+  save_as_image(path ="~/oculina/diversity/figures/tbl.all.site.png") # use extensions .html .tex .ltx .rtf
+
+```
+
+```{r summary statistics coral}
+df1 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, site)
+tbl.coral.seas <- tbl_summary(df1, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+df.coral.site.sha <- df.div.coral %>% select(Shannon, site)
+tbl_summary(df.coral.site.sha, by=site) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+aov.sha <- (aov(Shannon ~ site, data=df1))
+TukeyHSD(aov.sha)
+
+#post hoc test for kruskall wallis is the dunn test
+#library(FSA)
+dunnTest(even~site, data=df1, method="bonferroni") #CL-RI sig dif, others not
+
+df2 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, season)
+tbl.coral.seas <- tbl_summary(df2, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+df.coral.seas.sha <- df.div.coral %>% select(Shannon, season)
+tbl_summary(df.coral.seas.sha, by=season) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+
+df3 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, symbstate)
+tbl.coral.ss <- tbl_summary(df3, by = symbstate) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+df.coral.ss.sha <- df.div.coral %>% select(Shannon, symbstate)
+tbl_summary(df.coral.ss.sha, by=symbstate) %>%
+  add_p(test = Shannon ~ "aov") %>%
+  bold_labels()
+
+# check for interaction
+df1 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, site, density_sqrt, season)
+lm <- (lm(data=df1, Shannon ~ site * density_sqrt)) #intxn sig (***)
+tab_model(lm, digits = 4)
+lm <- (lm(data=df1, even ~ site * density_sqrt)) #intxn sig (*)
+summary(lm(data=df1, Observed ~ site * density_sqrt)) #intxn sig (***)
+summary(lm(data=df1, Chao1 ~ site * density_sqrt)) #intxn ***
+
+df1 <- df.div.coral %>% select(Shannon, even, Observed, Chao1, site, symbstate, season)
+lm <- (lm(data=df1, Shannon ~ site * symbstate)) #intxn sig (***)
+summary(lm) #symb state significant, and intxn sig (for RI)
+
+# Faith's D
+df <- df.div.coral.pd %>% select(PD, symbstate)
+tbl.coral.ss <- tbl_summary(df, by = symbstate) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df <- df.div.coral.pd %>% select(PD, season)
+tbl_summary(df, by = season) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+df <- df.div.coral.pd %>% select(PD, site)
+tbl_summary(df, by = site) %>%
+  add_p(test= everything() ~ "kruskal.test") %>% # test for a difference between groups
+  modify_header(label = "***Alpha Diversity***") %>% # update the column header
+  bold_labels()
+
+
+```
+
+
 
 ### GLMS - Alpha Diversity Indices
 
@@ -148,31 +373,30 @@ glm.4 <- glm(even ~ type * season + site, data=df.div, family=gaussian)
 glm.5 <- glm(even ~ type * season * site, data=df.div, family=gaussian)
 
 AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
-# null model best
-
+# glm.4 best (-153.0)
+summary(glm.4)
+tab_model(glm.4)
 
 ### Richness - all types
 
-glm.0 <- glm(Observed ~ 1, data=df.div, family=gaussian())
-glm.1 <- glm(Observed ~ type, data=df.div, family=gaussian)
-glm.2 <- glm(Observed ~ type + season + site, data=df.div, family=gaussian)
-glm.3 <- glm(Observed ~ type + season * site, data=df.div, family=gaussian)
-glm.4 <- glm(Observed ~ type * season + site, data=df.div, family=gaussian)
-glm.5 <- glm(Observed ~ type * season * site, data=df.div, family=gaussian)
+glm.0 <- glm.nb(Observed ~ 1, data=df.div)
+glm.1 <- glm.nb(Observed ~ type, data=df.div)
+glm.2 <- glm.nb(Observed ~ type + season + site, data=df.div)
+glm.3 <- glm.nb(Observed ~ type + season * site, data=df.div)
+glm.4 <- glm.nb(Observed ~ type * season + site, data=df.div)
+glm.5 <- glm.nb(Observed ~ type * season * site, data=df.div)
+
 
 AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
-#glm.2 best
-summary(glm.2)
+#glm.1 best (862.2)
+summary(glm.1)
 
-#             Estimate Std. Error t value Pr(>|t|)    
-#(Intercept)   106.967     79.571   1.344    0.184    
-#typeseawater  102.821     65.805   1.563    0.123    
-#typesediment  360.062     65.530   5.495 7.01e-07 ***
-#seasonSummer  -17.007     56.292  -0.302    0.764    
-#siteNR         33.436     70.220   0.476    0.636    
-#siteRI          9.301     71.097   0.131    0.896   
+#             Estimate Std. Error z value Pr(>|z|)    
+#(Intercept)    4.7169     0.1099  42.902  < 2e-16 ***
+#typeseawater   0.6658     0.2315   2.876  0.00403 ** 
+#typesediment   1.4422     0.2311   6.241 4.36e-10 ***
 
-tab_model(glm.2)
+tab_model(glm.1)
 ```
 
 ```{r shannon glm coral}
@@ -215,7 +439,7 @@ glm.3e <- glm(Shannon ~ season*site*density_sqrt, data=df.div.coral, family=gaus
 
 AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
 
-#glm.3b best AIC
+#glm.3b best AIC (95.9)
 summary(glm.3b)
 #                      Estimate Std. Error t value Pr(>|t|)    
 #(Intercept)          2.6192306  0.3011504   8.697 1.42e-10 ***
@@ -235,6 +459,32 @@ tab_model(glm.3b, digits=4)
 #library(webshot)
 #webshot("./stats/sha.coral.glm.gauss.html", "./stats/sha.coral.glm.gauss.png")
 
+# remove outlier from density
+library(outliers)
+outlier <- outlier(df.div.coral$density_sqrt)
+df.div.coral.out <- df.div.coral %>% filter(!density_sqrt %in% outlier)
+
+
+glm.0 <- glm(Shannon ~ 1, data=df.div.coral.out, family=gaussian())
+glm.1a <- glm(Shannon ~ site, data=df.div.coral.out, family=gaussian())
+glm.1b <- glm(Shannon ~ season, data=df.div.coral.out, family=gaussian())
+glm.1c <- glm(Shannon ~ density_sqrt, data=df.div.coral.out, family=gaussian())
+
+glm.2a <- glm(Shannon ~ season+site, data=df.div.coral.out, family=gaussian())
+glm.2b <- glm(Shannon ~ season+density_sqrt, data=df.div.coral.out, family=gaussian())
+glm.2c <- glm(Shannon ~ site+density_sqrt, data=df.div.coral.out, family=gaussian())
+
+glm.3a <- glm(Shannon ~ season+site+density_sqrt, data=df.div.coral.out, family=gaussian())
+glm.3b <- glm(Shannon ~ season+site*density_sqrt, data=df.div.coral.out, family=gaussian())
+glm.3c <- glm(Shannon ~ season*site+density_sqrt, data=df.div.coral.out, family=gaussian())
+glm.3d <- glm(Shannon ~ site+season*density_sqrt, data=df.div.coral.out, family=gaussian())
+glm.3e <- glm(Shannon ~ season*site*density_sqrt, data=df.div.coral.out, family=gaussian())
+
+AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
+#glm 3b still best
+summary(glm.3b)
+
+
 #trying with symbstate instead of density:
 
 glm.0 <- glm(Shannon ~ 1, data=df.div.coral, family=gaussian())
@@ -253,7 +503,7 @@ glm.3d <- glm(Shannon ~ site+season*symbstate, data=df.div.coral, family=gaussia
 glm.3e <- glm(Shannon ~ season*site*symbstate, data=df.div.coral, family=gaussian())
 
 AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
-#glm.3b best AIC
+#glm.3b best AIC (109.6)
 summary(glm.3b)
 #                           Estimate Std. Error t value Pr(>|t|)    
 #(Intercept)                3.119842   0.268222  11.632 4.35e-14 ***
@@ -293,13 +543,10 @@ glm.3e <- glm(even ~ season*site*density_sqrt, data=df.div.coral, family=gaussia
 
 AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
 
-# glm.1c best
-summary(glm.1c) #so none of the variables are predictive of evenness?
-#               Estimate Std. Error t value Pr(>|t|)    
-#(Intercept)   7.966e-01  2.900e-02  27.467   <2e-16 ***
-#density_sqrt -8.770e-06  1.136e-05  -0.772    0.444  
+# glm.1b best (-88.0)
+summary(glm.1b) 
 
-tab_model(glm.1c, digits=5)
+tab_model(glm.1b, digits=2)
 
 ### Symbstate - evenness
 
@@ -319,10 +566,10 @@ glm.3d <- glm(even ~ site+season*symbstate, data=df.div.coral, family=gaussian()
 glm.3e <- glm(even ~ season*site*symbstate, data=df.div.coral, family=gaussian())
 
 AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
- #glm.1c best 
+ #glm.1b best (-88.0)
 
-summary(glm.1c)
-tab_model(glm.1c)
+summary(glm.1b)
+tab_model(glm.1b)
 ```
 
 
@@ -347,7 +594,7 @@ glm.5 <- glm(Observed ~ season*site*density, data=df.div.coral, family=poisson()
 #summary(glm.5)
 
 AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
-# glm.5 is best
+# glm.5 is best (1502.1)
 summary(glm.5) 
 
 #for glm.5:
@@ -357,20 +604,6 @@ summary(glm.5)
 
 # trying negative binomial
 library(MASS)
-glm.0 <- glm.nb(Observed ~ 1, data=df.div.coral)
-glm.1 <- glm.nb(Observed ~ season+site+density, data=df.div.coral)
-#summary(glm.1)
-glm.2 <- glm.nb(Observed ~ season+site*density, data=df.div.coral)
-#summary(glm.2)
-glm.3 <- glm.nb(Observed ~ season*site+density, data=df.div.coral)
-#summary(glm.3)
-glm.4 <- glm.nb(Observed ~ site+season*density, data=df.div.coral)
-#summary(glm.4)
-glm.5 <- glm.nb(Observed ~ season*site*density, data=df.div.coral)
-#summary(glm.5)
-
-AICc(glm.0,glm.1, glm.2, glm.3, glm.4, glm.5)
-
 
 
 glm.0 <- glm.nb(Observed ~ 1, data=df.div.coral)
@@ -643,27 +876,42 @@ df.div.pd <- merge(df.div,pd.div,by=0)
 ```
 
 
-```{r}
+```{r faith's d GLMs}
 #setwd("~oculina/data")
-load("ps.less.tree.Rdata")
+ps.less.tree <- readRDS("ps.less.tree.Rdata")
 pd.div <- estimate_pd(ps.less.tree)
 row.names(df.div) <- df.div$id
 df.div.pd <- merge(df.div,pd.div,by=0)
 df.div.coral.pd <- subset(df.div.pd, type=="coral")
+df.div.coral.pd$density <- as.numeric(df.div.coral.pd$density)
 df.div.coral.pd$density_sqrt <- sqrt(df.div.coral.pd$density)
 df.div.coral.pd$season <- as.factor(df.div.coral$season)
-df.div.coral.pd$season <- relevel(df.div.coral$season, ref="Summer")
-df.div.coral.pd$site <- as.factor(df.div.coral$site)
-df.div.coral.pd$site <- relevel(df.div.coral$site, ref="NR")
-df.div.coral.pd$density_sqrt <- sqrt(df.div.coral$density)
-df.div.coral.pd$density_sqrt <- as.numeric(df.div.coral$density_sqrt)
+df.div.coral.pd$season <- relevel(df.div.coral.pd$season, ref="Summer")
+df.div.coral.pd$site <- as.factor(df.div.coral.pd$site)
+df.div.coral.pd$site <- relevel(df.div.coral.pd$site, ref="NR")
 str(df.div.coral.pd)
 
 
 ## GLM - Faith's D ###
-qqPlot(df.div.coral.pd$PD)
-shapiro.test(df.div.coral.pd$PD) #p=0.0011
-ggdensity(df.div.coral.pd$PD) #right-skewed
+# All types
+df.div.pd$season <- as.factor(df.div.pd$season)
+df.div.pd$site <- as.factor(df.div.pd$site)
+df.div.pd$type <- as.factor(df.div.pd$type)
+
+glm.0 <- glm(PD ~ 1, data=df.div.pd, family=gaussian())
+glm.1 <- glm(PD ~ type, data=df.div.pd, family=gaussian)
+glm.2 <- glm(PD ~ type + season + site, data=df.div.pd, family=gaussian)
+glm.3 <- glm(PD ~ type + season * site, data=df.div.pd, family=gaussian)
+glm.4 <- glm(PD ~ type * season + site, data=df.div.pd, family=gaussian)
+glm.5 <- glm(PD ~ type * season * site, data=df.div.pd, family=gaussian)
+
+AICc(glm.0, glm.1, glm.2, glm.3, glm.4, glm.5)
+#glm.5 best by a smidgen, null model second best (AIC 706.1)
+summary(glm.5)
+
+#qqPlot(df.div.coral.pd$PD)
+#shapiro.test(df.div.coral.pd$PD) #p=0.0011
+#ggdensity(df.div.coral.pd$PD) #right-skewed
 
 glm.0 <- glm(PD ~ 1, data=df.div.coral.pd, family=gaussian())
 glm.1a <- glm(PD ~ site, data=df.div.coral.pd, family=gaussian())
@@ -682,13 +930,10 @@ glm.3e <- glm(PD ~ season*site*density_sqrt, data=df.div.coral.pd, family=gaussi
 
 AICc(glm.0,glm.1a,glm.1b,glm.1c, glm.2a,glm.2b,glm.2c, glm.3a, glm.3b, glm.3c,glm.3d,glm.3e)
 
-# glm.1c best
-summary(glm.1c) #so none of the variables are predictive of evenness?
-#               Estimate Std. Error t value Pr(>|t|)    
-#(Intercept)   7.966e-01  2.900e-02  27.467   <2e-16 ***
-#density_sqrt -8.770e-06  1.136e-05  -0.772    0.444  
+# glm.3b best
+summary(glm.3b) 
 
-tab_model(glm.1c, digits=5)
+tab_model(glm.3b, digits=2)
 
 ### Symbstate - Faith's D
 glm.0 <- glm(PD ~ 1, data=df.div.coral.pd, family=gaussian())

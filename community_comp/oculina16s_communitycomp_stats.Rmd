@@ -97,12 +97,10 @@ tax_table(ps.less) <- as.matrix(tax.clean)
 # Transform data using centered log ratio (makes data symmetric and linearly related)
 ```{r transform data using CLR}
 #library(microbiome)
-ps.less.clr <- transform(ps.less, 'clr') #otu table: no longer counts, but rather the dominance (or lack thereof) for each taxa relative to the geometric mean of all taxa on the logarithmic scale
+ps.less.clr <- microbiome::transform(ps.less, 'clr') #otu table: no longer counts, but rather the dominance (or lack thereof) for each taxa relative to the geometric mean of all taxa on the logarithmic scale
 # read more here: https://www.nicholas-ollberding.com/post/introduction-to-the-statistical-analysis-of-microbiome-data-in-r/
 #basically, need to do CLR because microbiome data is compositional data and this is necessary in order to meet assumptions of methods below (Explains in link above and links within article to other papers); compositional data should be analyzed using euclidian instead of bray, I think
 
-
-#load("~/oculina/data/ps.rare.rev.clr.Rdata")
 #subset coral
 ps.coral.clr <- subset_samples(ps.less.clr,type=="coral")
 #ps.coral <- subset_samples(ps.less,type=="coral")
@@ -147,6 +145,13 @@ adonis2(dist.less ~ type, data=samdf.less, permutations=999)
 #Residual 68   251556 0.88051                  
 #Total    70   285693 1.00000 
 
+bet.all <- betadisper(dist.less,samdf.less$type)
+plot(bet.all)
+permutest(bet.all, pairwise = TRUE, permutations = 999)
+#          Df Sum Sq Mean Sq      F N.Perm Pr(>F)    
+#Groups     2  10154  5076.7 23.052    999  0.001 ***
+#Residuals 68  14975   220.2         
+
 adonis2(dist.less ~ type*season, data=samdf.less, permutations=999)
 #            Df SumOfSqs      R2      F Pr(>F)    
 #type         2    34137 0.11949 4.8378  0.001 ***
@@ -164,8 +169,19 @@ adonis2(dist.less ~ type*site, data=samdf.less, permutations=999)
 #Total     70   285693 1.00000  
 
 adonis2(dist.less ~ type*season*site, data=samdf.less, permutations=999)
+#                 Df SumOfSqs      R2      F Pr(>F)    
+#type              2    34137 0.11949 5.1817  0.001 ***
+#season            1     7553 0.02644 2.2931  0.001 ***
+#site              2     9569 0.03349 1.4525  0.002 ** 
+#type:season       2    14618 0.05117 2.2189  0.001 ***
+#type:site         4    21179 0.07413 1.6074  0.001 ***
+#season:site       1     4754 0.01664 1.4433  0.017 *  
+#type:season:site  2     9421 0.03297 1.4300  0.016 *  
+#Residual         56   184462 0.64567                  
+#Total            70   285693 1.00000                
 
 
+# order of terms matters for adonis... read more here https://stats.stackexchange.com/questions/312302/adonis-in-vegan-order-of-variables-non-nested-with-one-degree-of-freedom-for
 ```
 
 ```{r stats for coral (clr-transformed)}

@@ -1,8 +1,8 @@
 ---
 title: "oculina16s_analysis_rare_lasso"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 date: '2022-09-14'
 editor_options:
   chunk_output_type: console
@@ -25,8 +25,10 @@ library(vegan)
 library(dada2)
 library(stats)
 library(MuMIn)
+library(tidyverse)
+
 load("~/oculina/data/ps.rare.rev.Rdata")
-samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens.csv",header=TRUE) #R is making me put the full path all of a sudden, not sure why
+samdf <- read.csv("~/oculina/data/oculina16s_sampledata_symdens_sept22.csv",header=TRUE) #R is making me put the full path all of a sudden, not sure why
 
 df <- data.frame(estimate_richness(ps.rare, split=TRUE, measures=c("Shannon","InvSimpson","Observed","Chao1")))
 #df <- data.frame(estimate_richness(ps.clean, split=TRUE, measures=c("Shannon","InvSimpson","Observed")))
@@ -70,6 +72,7 @@ df.div.coral.sha$season <- as.factor(df.div.coral.sha$season)
 #df.div.coral.sha$season <- factor(df.div.coral.sha$season, levels=c("Summer", "Fall"))
 df.div.coral.sha.2 <- as.data.frame(model.matrix(Shannon~.^2, df.div.coral.sha)[,-1])
 df.div.coral.sha.2$Shannon <- df.div.coral.sha$Shannon
+#df.div.coral.sha.2 <- df.div.coral.sha.2 %>% select(!c("seasonSummer:density_sqrt"))
 
 model <- train(Shannon ~ .,data = df.div.coral.sha.2,method = 'lasso')
 model
@@ -98,7 +101,6 @@ sqrt(mean((test.target - predictions)^2))
 #cross validation
 ctrl <- trainControl(method = "cv",number = 10,)
 model4 <- train(Shannon ~ .,data = training, method = 'lasso', preProcess = c("center", "scale"),trControl = ctrl)
-model4
 
 test.features = subset(testing, select=-c(Shannon))
 test.target = subset(testing, select=Shannon)[,1]
@@ -109,14 +111,16 @@ predictions = predict(model4, newdata = test.features)
 sqrt(mean((test.target - predictions)^2))
 
 #R2
-cor(test.target, predictions) ^ 2
+cor(test.target, predictions) ^ 2 #.60
+
 tuneGrid <- expand.grid(.fraction = seq(0, 1, by = 0.1))
 model5 <- train(Shannon ~ .,data = training,method = 'lasso',preProcess = c("center", "scale"),trControl = ctrl,tuneGrid = tuneGrid)
 
 model5
 plot(model5)
 plot(varImp(model5))
-cor(test.target, predictions) ^ 2 #64.9%
+predictions = predict(model5, newdata = test.features)
+cor(test.target, predictions) ^ 2 #61%
 
 coef <- predict(model5$finalModel,type="coef",s=16)
 coef <- as.data.frame(coef)
@@ -131,7 +135,7 @@ ggplot(data = coef) +
 ```
 
 #Following another lasso (vs. ridge) tutorial to see if I get same results
-```{r}
+```{r, eval=FALSE}
 X <- df.div.coral.sha.2
 y <- df.div.coral.sha$Shannon
 
@@ -195,56 +199,8 @@ ggplot(data = coef) +
 ```
 
 
-#Trying glinternet - couldn't get it to work
-```{r}
-#Need to get data into form that glinternet likes
-# impute the median for the continuous variables
-df.div.coral.sha$site <- as.factor(df.div.coral.sha$site)
-df.div.coral.sha$season <- as.factor(df.div.coral.sha$season)
-df <- df.div.coral.obs
-df <- df %>% select(site, season, density_sqrt)
-
-# impute the median for the continuous variables
-i_num <- sapply(df, is.numeric)
-df[, i_num] <- apply(df[, i_num], 2, function(x) ifelse(is.na(x), median(x, na.rm=T), x))
-
-# impute empty categories
-df[, !i_num] <- apply(df[, !i_num], 2, function(x) {
-  x[x==""] <- "empty"
-  x[is.na(x)] <- "missing"
-  x
-})
-
-# get the numLevels vector containing the number of categories
-X <- df
-X[, !i_num] <- apply(X[, !i_num], 2, factor) %>% as.data.frame()
-numLevels <- X %>% sapply(nlevels)
-numLevels[numLevels==0] <- 1
-
-# make the categorical variables take integer values starting from 0
-X[, !i_num] <- apply(X[, !i_num], 2, function(col) as.integer(as.factor(col)) - 1)
-
-
-library(glinternet)
-set.seed(1001)
-y <- df.div.coral.Chao1$Chao1
-cv_fit <- glinternet.cv(X, y, numLevels)
-plot(cv_fit)
-
-i_1Std <- which(cv_fit$lambdaHat1Std == cv_fit$lambda)
-
-coefs <- coef(cv_fit$glinternetFit)[[i_1Std]]
-coefs$mainEffects
-idx_num <- (1:length(i_num))[i_num]
-idx_cat <- (1:length(i_num))[!i_num]
-names(numLevels)[idx_cat[coefs$mainEffects$cat]]
-names(numLevels)[idx_num[coefs$mainEffects$cont]]
-
-coefs$interactions
-```
-
 # Trying lasso regression with glmnet package
-```{r lasso glmnet shannon}
+```{r lasso glmnet shannon,eval=FALSE}
 #library(glmnet)
 #define response variable
 y <- df.div.coral.sha$Shannon
@@ -303,33 +259,33 @@ ggplot(data = coeffs.table) +
 
 ### Evenness
 ```{r lasso caret even}
-str(df.div.coral)
 df.div.coral.even <- df.div.coral %>% dplyr::select(even, site, season, density_sqrt)
 df.div.coral.even$site <- as.factor(df.div.coral.even$site)
 df.div.coral.even$season <- as.factor(df.div.coral.even$season)
-str(df.div.coral.even)
+
+df.div.coral.even.2 <- as.data.frame(model.matrix(even~.^2, df.div.coral.even)[,-1])
+df.div.coral.even.2$even <- df.div.coral.even$even
+
+X <- df.div.coral.even.2
+
 model <- train(
   even ~ .,
-  data = df.div.coral.even,
+  data = X,
   method = 'lasso'
 )
-model
-plot(model)
-plot(varImp(model))
 
 #pre-process data
 model2 <- train(
   even ~ .,
-  data = df.div.coral.even,
+  data = X,
   method = 'lasso',
   preProcess = c("center", "scale") #center and scale the data
 )
-model2
 #training
 set.seed(1)
-inTraining <- createDataPartition(df.div.coral.even$even, p = .80, list = FALSE)
-training <- df.div.coral.even[inTraining,]
-testing  <- df.div.coral.even[-inTraining,]
+inTraining <- createDataPartition(X$even, p = .80, list = FALSE)
+training <- X[inTraining,]
+testing  <- X[-inTraining,]
 
 model3 <- train(
   even ~.,
@@ -337,7 +293,6 @@ model3 <- train(
   method = 'lasso',
   preProcess = c("center", "scale")
 )
-model3
 test.features = subset(testing, select=-c(even))
 test.target = subset(testing, select=even)[,1]
 predictions = predict(model3, newdata = test.features)
@@ -355,14 +310,10 @@ model4 <- train(
   preProcess = c("center", "scale"),
   trControl = ctrl
 )
-model4
 test.features = subset(testing, select=-c(even))
 test.target = subset(testing, select=even)[,1]
 predictions = predict(model4, newdata = test.features)
-# RMSE
-sqrt(mean((test.target - predictions)^2))
-#R2
-cor(test.target, predictions) ^ 2
+
 tuneGrid <- expand.grid(
   .fraction = seq(0, 1, by = 0.1)
 )
@@ -379,75 +330,41 @@ model5
 plot(model5)
 plot(varImp(model5))
 
+# RMSE
+predictions = predict(model5, newdata = test.features)
+sqrt(mean((test.target - predictions)^2))
+#R2
+cor(test.target, predictions) ^ 2
 ```
-
-```{r lasso glmnet even}
-#library(glmnet)
-#define response variable
-y <- df.div.coral.even$even
-
-#define matrix of predictor variables
-x <-data.matrix(df.div.coral.even %>% dplyr::select(site:density_sqrt))
-
-#perform k-fold cross-validation to find optimal lambda value
-cv_model <- cv.glmnet(x, y, alpha = 1)
-
-#find optimal lambda value that minimizes test MSE
-best_lambda <- cv_model$lambda.min
-best_lambda
-
-#produce plot of test MSE by lambda value
-plot(cv_model) 
-
-#find coefficients of best model
-best_model <- glmnet(x, y, alpha = 1, lambda = best_lambda)
-coef(best_model)
-
-#use fitted best model to make predictions
-y_predicted <- predict(best_model, s = best_lambda, newx = x)
-
-#find SST and SSE
-sst <- sum((y - mean(y))^2)
-sse <- sum((y_predicted - y)^2)
-
-#find R-Squared
-rsq <- 1 - sse/sst
-rsq
-
-```
-
-
-
 
 ### ASV Richness
 ```{r lasso caret richness}
-str(df.div.coral)
 df.div.coral.obs <- df.div.coral %>% dplyr::select(Observed, site, season, density_sqrt)
 df.div.coral.obs$site <- as.factor(df.div.coral.obs$site)
 df.div.coral.obs$season <- as.factor(df.div.coral.obs$season)
-str(df.div.coral.obs)
+df.div.coral.obs.2 <- as.data.frame(model.matrix(Observed~.^2, df.div.coral.obs)[,-1])
+df.div.coral.obs.2$Observed <- df.div.coral.obs$Observed
+
+X <- df.div.coral.obs.2
+
 model <- train(
   Observed ~ .,
-  data = df.div.coral.obs,
+  data = X,
   method = 'lasso'
 )
-model
-plot(model)
-plot(varImp(model))
 
 #pre-process data
 model2 <- train(
   Observed ~ .,
-  data = df.div.coral.obs,
+  data = X,
   method = 'lasso',
   preProcess = c("center", "scale") #center and scale the data
 )
-model2
 #training
 set.seed(1)
-inTraining <- createDataPartition(df.div.coral.obs$Observed, p = .80, list = FALSE)
-training <- df.div.coral.obs[inTraining,]
-testing  <- df.div.coral.obs[-inTraining,]
+inTraining <- createDataPartition(X$Observed, p = .80, list = FALSE)
+training <- X[inTraining,]
+testing  <- X[-inTraining,]
 
 model3 <- train(
   Observed ~.,
@@ -455,7 +372,6 @@ model3 <- train(
   method = 'lasso',
   preProcess = c("center", "scale")
 )
-model3
 test.features = subset(testing, select=-c(Observed))
 test.target = subset(testing, select=Observed)[,1]
 predictions = predict(model3, newdata = test.features)
@@ -497,74 +413,41 @@ model5
 plot(model5)
 plot(varImp(model5))
 
+# RMSE
+predictions = predict(model5, newdata = test.features)
+sqrt(mean((test.target - predictions)^2))
+#R2
+cor(test.target, predictions) ^ 2
 ```
-
-```{r lasso glmnet richness}
-#library(glmnet)
-#define response variable
-y <- df.div.coral.obs$Observed
-
-#define matrix of predictor variables
-x <-data.matrix(df.div.coral.obs %>% dplyr::select(site:density_sqrt))
-
-#perform k-fold cross-validation to find optimal lambda value
-cv_model <- cv.glmnet(x, y, alpha = 1)
-
-#find optimal lambda value that minimizes test MSE
-best_lambda <- cv_model$lambda.min
-best_lambda
-
-#produce plot of test MSE by lambda value
-plot(cv_model) 
-
-#find coefficients of best model
-best_model <- glmnet(x, y, alpha = 1, lambda = best_lambda)
-coef(best_model)
-
-#use fitted best model to make predictions
-y_predicted <- predict(best_model, s = best_lambda, newx = x)
-
-#find SST and SSE
-sst <- sum((y - mean(y))^2)
-sse <- sum((y_predicted - y)^2)
-
-#find R-Squared
-rsq <- 1 - sse/sst
-rsq
-
-```
-
 
 
 ### Chao1
 ```{r lasso caret chao1}
-str(df.div.coral)
 df.div.coral.Chao1 <- df.div.coral %>% dplyr::select(Chao1, site, season, density_sqrt)
 df.div.coral.Chao1$site <- as.factor(df.div.coral.Chao1$site)
 df.div.coral.Chao1$season <- as.factor(df.div.coral.Chao1$season)
-str(df.div.coral.Chao1)
+df.div.coral.Chao1.2 <- as.data.frame(model.matrix(Chao1~.^2, df.div.coral.Chao1)[,-1])
+df.div.coral.Chao1.2$Chao1 <- df.div.coral.Chao1$Chao1
+
+X<- df.div.coral.Chao1.2
+
 model <- train(
   Chao1 ~ .,
-  data = df.div.coral.Chao1,
+  data = X,
   method = 'lasso'
 )
-model
-plot(model)
-plot(varImp(model))
-
 #pre-process data
 model2 <- train(
   Chao1 ~ .,
-  data = df.div.coral.Chao1,
+  data = X,
   method = 'lasso',
   preProcess = c("center", "scale") #center and scale the data
 )
-model2
 #training
 set.seed(1)
-inTraining <- createDataPartition(df.div.coral.Chao1$Chao1, p = .80, list = FALSE)
-training <- df.div.coral.Chao1[inTraining,]
-testing  <- df.div.coral.Chao1[-inTraining,]
+inTraining <- createDataPartition(X$Chao1, p = .80, list = FALSE)
+training <- X[inTraining,]
+testing  <- X[-inTraining,]
 
 model3 <- train(
   Chao1 ~.,
@@ -572,7 +455,6 @@ model3 <- train(
   method = 'lasso',
   preProcess = c("center", "scale")
 )
-model3
 test.features = subset(testing, select=-c(Chao1))
 test.target = subset(testing, select=Chao1)[,1]
 predictions = predict(model3, newdata = test.features)
@@ -590,7 +472,6 @@ model4 <- train(
   preProcess = c("center", "scale"),
   trControl = ctrl
 )
-model4
 test.features = subset(testing, select=-c(Chao1))
 test.target = subset(testing, select=Chao1)[,1]
 predictions = predict(model4, newdata = test.features)
@@ -614,49 +495,17 @@ model5
 plot(model5)
 plot(varImp(model5))
 
+# RMSE
+predictions = predict(model5, newdata = test.features)
+sqrt(mean((test.target - predictions)^2))
+#R2
+cor(test.target, predictions) ^ 2
 ```
-
-```{r lasso glmnet chao1}
-#library(glmnet)
-#define response variable
-y <- df.div.coral.Chao1$Chao1
-
-#define matrix of predictor variables
-x <-data.matrix(df.div.coral.Chao1 %>% dplyr::select(site:density_sqrt))
-
-#perform k-fold cross-validation to find optimal lambda value
-cv_model <- cv.glmnet(x, y, alpha = 1)
-
-#find optimal lambda value that minimizes test MSE
-best_lambda <- cv_model$lambda.min
-best_lambda
-
-#produce plot of test MSE by lambda value
-plot(cv_model) 
-
-#find coefficients of best model
-best_model <- glmnet(x, y, alpha = 1, lambda = best_lambda)
-coef(best_model)
-
-#use fitted best model to make predictions
-y_predicted <- predict(best_model, s = best_lambda, newx = x)
-
-#find SST and SSE
-sst <- sum((y - mean(y))^2)
-sse <- sum((y_predicted - y)^2)
-
-#find R-Squared
-rsq <- 1 - sse/sst
-rsq
-
-```
-
-
 
 
 
 # Following tutorial for ridge and lasso...
-```{r}
+```{r, eval=FALSE}
 library(plyr)
 library(readr)
 library(dplyr)
@@ -762,7 +611,7 @@ eval_results(y_test, predictions_test, test)
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 ## Lasso regression
 lambdas <- 10^seq(2, -3, by = -.1)
 # Setting alpha = 1 implements lasso regression
@@ -780,7 +629,7 @@ predictions_test <- predict(lasso_model, s = lambda_best, newx = x_test)
 eval_results(y_test, predictions_test, test)
 ```
 
-```{r}
+```{r,eval=FALSE}
 #elastic net regression
 # Set training control
 train_cont <- trainControl(method = "repeatedcv",
